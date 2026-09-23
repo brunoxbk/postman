@@ -5,6 +5,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Rastreador de Encomendas{% endblock %}</title>
+  <link rel="icon" type="image/svg+xml" href="{% static 'img/favicon.svg' %}">
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
 </head>
 <body>
@@ -22,7 +23,12 @@
 <main class="container">
   {% if messages %}
     <div class="messages">
-      {% for message in messages %}<div class="message">{{ message }}</div>{% endfor %}
+      {% for message in messages %}
+        <div class="message message-{{ message.tags }}">
+          {{ message }}
+          <button type="button" class="message-close" aria-label="Fechar">×</button>
+        </div>
+      {% endfor %}
     </div>
   {% endif %}
   {% block content %}{% endblock %}

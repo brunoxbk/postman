@@ -1,8 +1,12 @@
 from rest_framework import serializers, viewsets
+from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_api_key.permissions import HasAPIKey
 
+from apps.carriers.adapters import detect_carrier
+from apps.carriers.constants import CARRIER_CHOICES
+from apps.carriers.sync import sync_package
 from apps.trackings.models import Package, TrackingEvent
 
 
@@ -22,6 +26,7 @@ class EventSerializer(serializers.ModelSerializer):
 class PackageSerializer(serializers.ModelSerializer):
     events = EventSerializer(many=True, read_only=True)
     carrier_display = serializers.CharField(source="get_carrier_display", read_only=True)
+    carrier = serializers.ChoiceField(choices=CARRIER_CHOICES, required=False, allow_blank=True)
 
     class Meta:
         model = Package
@@ -37,6 +42,16 @@ class PackageSerializer(serializers.ModelSerializer):
         if Package.objects.filter(tracking_code__iexact=value).exists():
             raise serializers.ValidationError("Código já cadastrado.")
         return value
+
+    def create(self, validated_data):
+        code = validated_data.get("tracking_code", "")
+        carrier = validated_data.get("carrier") or detect_carrier(code) or ""
+        if not carrier:
+            raise serializers.ValidationError(
+                {"carrier": "Não foi possível identificar a transportadora pelo código."}
+            )
+        validated_data["carrier"] = carrier
+        return super().create(validated_data)
 
 
 class PackageViewSet(viewsets.ModelViewSet):
@@ -56,3 +71,11 @@ class PackageViewSet(viewsets.ModelViewSet):
         if state:
             qs = qs.filter(state=state)
         return qs.select_related().prefetch_related("events")
+
+    @action(detail=True, methods=["POST"])
+    def sync(self, request, tracking_code=None):
+        package = self.get_object()
+        result = sync_package(package)
+        package.refresh_from_db()
+        serializer = self.get_serializer(package)
+        return Response({"sync_status": result, "package": serializer.data})

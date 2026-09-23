@@ -1,9 +1,18 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>Entrar</h1>
-<form method="post">
-  {% csrf_token %}
-  {{ form.as_p }}
-  <button type="submit">Entrar</button>
-</form>
+<div class="card form-card">
+  <h1>Entrar</h1>
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% for field in form %}
+      <div class="field">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% for error in field.errors %}<small class="error">{{ error }}</small>{% endfor %}
+      </div>
+    {% endfor %}
+    {% for error in form.non_field_errors %}<div class="error-box">{{ error }}</div>{% endfor %}
+    <button type="submit" class="btn btn-primary">Entrar</button>
+  </form>
+</div>
 {% endblock %}

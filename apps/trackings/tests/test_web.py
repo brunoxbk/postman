@@ -1,5 +1,6 @@
 from django.contrib.auth.models import User
 from django.test import TestCase
+from unittest import mock
 
 from apps.trackings.models import Package
 
@@ -51,3 +52,39 @@ class WebTestCase(TestCase):
         )
         resp = self.client.get("/")
         self.assertContains(resp, "Atrasada")
+
+    def test_dashboard_shows_quota_and_carrier_filter(self):
+        self.login()
+        resp = self.client.get("/")
+        self.assertContains(resp, "Cota mensal")
+        self.assertContains(resp, "900")
+        self.assertContains(resp, 'name="carrier"')
+
+    def test_dashboard_paginates(self):
+        self.login()
+        for i in range(26):
+            Package.objects.create(tracking_code=f"AM{i:09d}BR", carrier="correios")
+        resp = self.client.get("/")
+        self.assertContains(resp, "Página 1 de 2")
+        self.assertContains(resp, "Próxima")
+
+    def test_sync_now_get_is_blocked(self):
+        self.login()
+        Package.objects.create(tracking_code="AM101610575BR", carrier="correios")
+        resp = self.client.get("/packages/AM101610575BR/sync/")
+        self.assertEqual(resp.status_code, 405)
+
+    def test_sync_now_post(self):
+        self.login()
+        Package.objects.create(tracking_code="AM101610575BR", carrier="correios")
+        with mock.patch("apps.trackings.views.sync_package", return_value=True):
+            resp = self.client.post("/packages/AM101610575BR/sync/")
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(resp.url, "/packages/AM101610575BR/")
+
+    def test_sync_now_quota_paused_message(self):
+        self.login()
+        Package.objects.create(tracking_code="AM101610575BR", carrier="correios")
+        with mock.patch("apps.trackings.views.sync_package", return_value=None):
+            resp = self.client.post("/packages/AM101610575BR/sync/", follow=True)
+        self.assertContains(resp, "Cota mensal atingida")

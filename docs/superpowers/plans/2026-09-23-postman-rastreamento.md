@@ -2390,3 +2390,23 @@ Expected: todos testes PASS. `python manage.py check --deploy` com env prod pode
 
 ## Execution Handoff
 Plan complete and saved to `docs/superpowers/plans/2026-09-23-postman-rastreamento.md`.
+## Addendum — melhorias de UX e funcionalidade (pós-v1) ✅
+
+Implementadas (commits após `77f84a6`):
+
+- **API:** `carrier` opcional no `POST /api/v1/packages/` com detecção automática no
+  `create` (400 se código não reconhecido e sem carrier); nova ação
+  `POST /api/v1/packages/{code}/sync/` (retorna `sync_status` + pacote).
+- **Web:** `package_sync_now` só aceita **POST** (GET → 405), com mensagens por resultado;
+  dashboard com paginação (25/página), painel de cota (`count_today/COTA_MENSAL` + último
+  sync) e filtro de transportadora (recursos cookies): view já suportava, faltava o `<select>`.
+- **Models:** `mark_terminal` reseta `is_delayed`; novos campos `delivered_notified_at`/
+  `delay_notified_at` (migração `0002_notify_and_reset_delay`).
+- **Sync:** e-mail opcional (env `PACOTE_NOTIFY_EMAIL`; sem ele não envia) na 1ª entrega e
+  na 1ª detecção de atraso (via `django.core.mail`, `fail_silently=True`).
+- **Forms:** detecção automática só exigida quando `carrier` não informado (override manual
+  permitido); re-detecta carrier se o código mudou na edição.
+- **Layout:** CSS refatorado (botões primary/secondary/danger/sm, timeline colorida por
+  estado, badges por transportadora, mensagens-flash com tipo + fechar, tabela com scroll
+  horizontal, responsivo ≤640px), forms/login/confirm-delete em cards, favicon SVG.
+- **Testes:** +18 → **62 testes** verdes; `check --deploy` limpo; `collectstatic` ok.

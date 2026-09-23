@@ -24,7 +24,9 @@ dokku config:set postman \
   PACOTE_VICIO_API_KEY="sua-chave-rapidapi" \
   PACOTE_VICIO_BASE_URL=https://api.pacotevicio.dev \
   PACOTE_VICIO_TIMEOUT=35 \
-  COTA_MENSAL=900
+  COTA_MENSAL=900 \
+  PACOTE_NOTIFY_EMAIL="voce@example.com" \
+  DJANGO_DEFAULT_FROM_EMAIL="postman@example.com"
 ```
 
 `DATABASE_URL` já é injetada pelo plugin `postgres:link`. Habilite HTTPS e o domínio:
@@ -103,3 +105,6 @@ dokku logs postman -t
 - **Static não carrega**: certifique-se de que `whitenoise` está no middleware (já está)
   e que o `collectstatic` rodou.
 - **Cota estourando**: monitore `/admin/` (SyncLog) e ajuste `COTA_MENSAL`.
+- **E-mails**: se `PACOTE_NOTIFY_EMAIL` estiver preenchido, o cron envia 1 e-mail na
+  entrega e 1 na 1ª detecção de atraso. Configure `EMAIL_HOST`/`EMAIL_PORT`/`EMAIL_HOST_USER`/
+  `EMAIL_HOST_PASSWORD`/`EMAIL_USE_TLS` no Dokku conforme seu SMTP (defaults do Django).

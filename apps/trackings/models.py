@@ -43,6 +43,8 @@ class Package(models.Model):
     )
     is_active = models.BooleanField(default=True)
     is_delayed = models.BooleanField(default=False)
+    delivered_notified_at = models.DateTimeField(null=True, blank=True)
+    delay_notified_at = models.DateTimeField(null=True, blank=True)
     last_synced_at = models.DateTimeField(null=True, blank=True)
     last_error = models.TextField(blank=True)
     last_raw = models.JSONField(default=dict, blank=True)
@@ -59,6 +61,7 @@ class Package(models.Model):
         self.status_code = status_code
         self.state = state
         self.is_active = False
+        self.is_delayed = False
 
     @property
     def display_code(self) -> str:

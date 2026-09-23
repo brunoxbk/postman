@@ -1,3 +1,5 @@
+from unittest import mock
+
 from rest_framework import status
 from rest_framework.test import APITestCase
 from rest_framework_api_key.models import APIKey
@@ -31,6 +33,35 @@ class ApiTestCase(APITestCase):
     def test_create_requires_auth(self):
         resp = self.client.post("/api/v1/packages/", {"tracking_code": "X"}, format="json")
         self.assertEqual(resp.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_create_autodetect_carrier(self):
+        resp = self.client.post(
+            "/api/v1/packages/",
+            {"tracking_code": "AM101610575BR"},
+            format="json", **self.auth(),
+        )
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED, resp.content)
+        self.assertEqual(Package.objects.get(tracking_code="AM101610575BR").carrier, "correios")
+
+    def test_create_autodetect_rejects_unknown(self):
+        resp = self.client.post(
+            "/api/v1/packages/",
+            {"tracking_code": "ZZZ999"},
+            format="json", **self.auth(),
+        )
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST, resp.content)
+        self.assertFalse(Package.objects.filter(tracking_code="ZZZ999").exists())
+
+    def test_sync_action(self):
+        Package.objects.create(tracking_code="AM101610575BR", carrier="correios")
+        with mock.patch("apps.trackings.api.sync_package", return_value=True):
+            resp = self.client.post(
+                "/api/v1/packages/AM101610575BR/sync/",
+                format="json", **self.auth(),
+            )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK, resp.content)
+        self.assertTrue(resp.data["sync_status"])
+        self.assertEqual(resp.data["package"]["tracking_code"], "AM101610575BR")
 
     def test_list_and_retrieve(self):
         Package.objects.create(tracking_code="AM101610575BR", carrier="correios")

@@ -1,3 +1,5 @@
+from django.conf import settings
+from django.core.mail import send_mail
 from django.utils import timezone
 
 from apps.carriers.adapters import get_adapter
@@ -11,7 +13,16 @@ from apps.trackings.models import (
 )
 
 
+def _notify(package: Package, subject: str, body: str) -> None:
+    to = getattr(settings, "PACOTE_NOTIFY_EMAIL", "").strip()
+    if not to:
+        return
+    send_mail(subject, body, settings.DEFAULT_FROM_EMAIL, [to], fail_silently=True)
+
+
 def _apply_events(package: Package, normalized) -> None:
+    prev_state = package.state
+    prev_is_delayed = package.is_delayed
     for ev in sorted(normalized.events, key=lambda e: (e.occurred_at is None, e.occurred_at or timezone.now())):
         fp = TrackingEvent.make_fingerprint(package.id, ev.occurred_at, ev.status_key, ev.status_label)
         TrackingEvent.objects.get_or_create(
@@ -31,11 +42,18 @@ def _apply_events(package: Package, normalized) -> None:
     package.estimated_delivery = normalized.estimated_delivery
     package.last_raw = normalized.raw
     package.last_error = ""
+    now = timezone.now()
     if normalized.is_terminal:
         package.mark_terminal(normalized.status_code, STATE_DELIVERED)
     if package.state == "in_transit" and package.estimated_delivery and package.estimated_delivery < timezone.localdate():
         package.is_delayed = True
-    package.last_synced_at = timezone.now()
+    if normalized.is_terminal and prev_state != STATE_DELIVERED and not package.delivered_notified_at:
+        package.delivered_notified_at = now
+        _notify(package, f"Entregue: {package.display_code}", f"Sua encomenda {package.display_code} foi entregue/encerrada.")
+    if package.is_delayed and not prev_is_delayed and not package.delay_notified_at:
+        package.delay_notified_at = now
+        _notify(package, f"Possível atraso: {package.display_code}", f"Encomenda {package.display_code} ultrapassou a previsão de entrega.")
+    package.last_synced_at = now
     package.save()
 
 

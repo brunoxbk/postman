@@ -2,7 +2,8 @@ import json
 from pathlib import Path
 from unittest import mock
 
-from django.test import TestCase
+from django.core import mail
+from django.test import TestCase, override_settings
 
 from apps.carriers.sync import sync_package
 from apps.trackings.models import Package
@@ -18,6 +19,13 @@ class FakeClient:
     def fetch(self, path, params):
         self.calls += 1
         return self.raw
+
+
+EMAIL_SETTINGS = {
+    "EMAIL_BACKEND": "django.core.mail.backends.locmem.EmailBackend",
+    "PACOTE_NOTIFY_EMAIL": "destino@example.com",
+    "DEFAULT_FROM_EMAIL": "origem@example.com",
+}
 
 
 class SyncTestCase(TestCase):
@@ -43,3 +51,37 @@ class SyncTestCase(TestCase):
         res = sync_package(p, FakeClient({}))
         self.assertFalse(res)
         self.assertIn("CPF", Package.objects.get(pk=p.pk).last_error)
+
+
+@override_settings(**EMAIL_SETTINGS)
+class SyncEmailNotificationTestCase(TestCase):
+    def test_email_on_delivery_once(self):
+        p = Package.objects.create(tracking_code="AM101610575BR", carrier="correios")
+        raw = json.loads(FIXTURES.joinpath("correios.json").read_text())
+        self.assertTrue(sync_package(p, FakeClient(raw)))
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("Entregue", mail.outbox[0].subject)
+        sync_package(p, FakeClient(raw))
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIsNotNone(Package.objects.get(pk=p.pk).delivered_notified_at)
+
+    def test_email_on_delay_once(self):
+        p = Package.objects.create(tracking_code="AM101610575BR", carrier="correios")
+        raw = json.loads(FIXTURES.joinpath("correios.json").read_text())
+        raw["situacao"] = "C"
+        raw["dtPrevista"] = "01/01/2020"
+        for ev in raw["eventos"]:
+            ev["finalizador"] = "N"
+        self.assertTrue(sync_package(p, FakeClient(raw)))
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("atraso", mail.outbox[0].subject)
+        sync_package(p, FakeClient(raw))
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIsNotNone(Package.objects.get(pk=p.pk).delay_notified_at)
+
+    def test_no_email_without_setting(self):
+        p = Package.objects.create(tracking_code="AM101610575BR", carrier="correios")
+        raw = json.loads(FIXTURES.joinpath("correios.json").read_text())
+        with override_settings(PACOTE_NOTIFY_EMAIL=""):
+            self.assertTrue(sync_package(p, FakeClient(raw)))
+        self.assertEqual(len(mail.outbox), 0)

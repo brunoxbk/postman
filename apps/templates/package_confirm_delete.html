@@ -1,9 +1,12 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>Excluir {{ package.tracking_code }}?</h1>
-<form method="post">
-  {% csrf_token %}
-  <button type="submit">Excluir</button>
-  <a href="{% url 'package_detail' package.tracking_code %}">Cancelar</a>
-</form>
+<div class="card form-card">
+  <h1>Excluir {{ package.tracking_code }}?</h1>
+  <p>Esta ação remove a encomenda e todo o histórico de eventos. Deseja continuar?</p>
+  <form method="post">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-danger">Excluir</button>
+    <a class="btn btn-secondary" href="{% url 'package_detail' package.tracking_code %}">Cancelar</a>
+  </form>
+</div>
 {% endblock %}

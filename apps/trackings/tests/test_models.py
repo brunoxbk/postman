@@ -23,6 +23,16 @@ class PackageModelTestCase(TestCase):
         self.assertEqual(p.state, "delivered")
         self.assertEqual(p.status_code, "ENTREGUE")
 
+    def test_terminal_resets_is_delayed(self):
+        p = Package.objects.create(
+            tracking_code="AM101610575BR",
+            carrier=CARRIER_CORREIOS,
+            state=STATE_IN_TRANSIT,
+            is_delayed=True,
+        )
+        p.mark_terminal("ENTREGUE", "delivered")
+        self.assertFalse(p.is_delayed)
+
     def test_masked_document(self):
         p = Package(tracking_code="X1", carrier=CARRIER_CORREIOS, document="12345678901")
         self.assertEqual(p.masked_document, "***.***.***-01")

@@ -100,8 +100,8 @@ curl -H "Authorization: Api-Key $KEY" \
 Cadastra uma encomenda para rastreamento.
 
 - `tracking_code` (obrigatório, único)
-- `carrier` (opcional — se omitido, fica vazio e a detecção automática roda no próximo
-  sync; na web o form detecta na hora)
+- `carrier` (opcional — **se omitido, o carrier é detectado automaticamente** pelo código
+  salvo; `400` se o código não for reconhecido e nenhum carrier for informado)
 - `label` (opcional)
 - `document` (opcional; **obrigatório para J&T** — CPF do destinatário, só dígitos)
 
@@ -113,6 +113,28 @@ curl -s -X POST https://postman.example.com/api/v1/packages/ \
 ```
 
 Resposta `201` com o objeto criado (mesmo shape do GET). Código duplicado → `400`.
+Detecção automática: omita o `carrier` — `{"tracking_code":"AM101610575BR"}` cria com
+`carrier="correios"`.
+
+### `POST /api/v1/packages/{tracking_code}/sync/`
+
+Executa um sync imediato da encomenda (consome 1 requisição da cota mensal). Retorna o
+status do sync e o pacote atualizado.
+
+```
+curl -s -X POST https://postman.example.com/api/v1/packages/AM101610575BR/sync/ \
+  -H "Authorization: Api-Key $KEY"
+```
+
+```json
+{
+  "sync_status": true,
+  "package": { "...": "mesmo shape do GET" }
+}
+```
+
+Valores de `sync_status`: `true` (ok), `false` (erro controlado, exemplo: J&T sem CPF),
+`null` (cota mensal atingida — sincronização pausada).
 
 ### Outros métodos
 

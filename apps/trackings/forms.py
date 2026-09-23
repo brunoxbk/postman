@@ -17,12 +17,30 @@ class PackageForm(forms.ModelForm):
             "document": forms.TextInput(attrs={"class": "form-control", "placeholder": "Somente dígitos"}),
         }
 
+    def __init__(self, *args, **kwargs):
+        self._original_code = None
+        instance = kwargs.get("instance")
+        if instance is not None:
+            self._original_code = instance.tracking_code
+        super().__init__(*args, **kwargs)
+
     def clean_tracking_code(self):
-        code = self.cleaned_data["tracking_code"].strip()
-        detected = detect_carrier(code)
-        if not detected:
-            raise forms.ValidationError("Não foi possível identificar a transportadora pelo código.")
-        return code
+        return self.cleaned_data["tracking_code"].strip()
+
+    def clean(self):
+        cleaned = super().clean()
+        code = cleaned.get("tracking_code")
+        carrier = cleaned.get("carrier")
+        detected = detect_carrier(code) if code else None
+        if not carrier:
+            if not detected:
+                raise forms.ValidationError(
+                    {"tracking_code": "Não foi possível identificar a transportadora pelo código."}
+                )
+            cleaned["carrier"] = detected
+        elif self._original_code and code != self._original_code and detected:
+            cleaned["carrier"] = detected
+        return cleaned
 
     def clean_document(self):
         doc = self.cleaned_data.get("document") or ""
