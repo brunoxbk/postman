@@ -83,14 +83,17 @@ curl -H "Authorization: Api-Key $KEY" \
           "occurred_at": "2025-03-04T02:30:03-03:00",
           "status_key": "BDE",
           "status_label": "ENTREGUE",
-          "location": "Recife / PE",
-          "raw": { "...": "payload original" }
+          "location": "Recife / PE"
         }
       ]
     }
   ]
 }
 ```
+
+> **Privacidade:** os eventos retornados **não incluem o campo `raw`** (payloads das
+> transportadoras podem conter nome do destinatário, telefone e endereço). O payload
+> bruto fica disponível apenas no admin e no painel web (debug).
 
 ### `GET /api/v1/packages/{tracking_code}/`
 

@@ -93,5 +93,18 @@ class ApiTestCase(APITestCase):
         self.assertEqual(resp2.status_code, 200)
         self.assertEqual(resp2.data["tracking_code"], "AM101610575BR")
 
+    def test_events_do_not_expose_raw(self):
+        p = Package.objects.create(tracking_code="AM101610575BR", carrier="correios")
+        p.events.create(
+            occurred_at="2025-03-03 23:30:03", status_key="BDE",
+            status_label="Entregue", location="Recife / PE",
+            fingerprint="f1", raw={"recipient_name": "Maria", "phone": "11999999999"},
+        )
+        resp = self.client.get("/api/v1/packages/AM101610575BR/", **self.auth())
+        self.assertEqual(resp.status_code, 200)
+        event = resp.data["events"][0]
+        self.assertNotIn("raw", event)
+        self.assertNotIn("recipient_name", resp.content.decode())
+
     def test_detect_carrier_via_api(self):
         self.assertEqual(detect_carrier("AJ123456789"), "anjun")

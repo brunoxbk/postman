@@ -12,6 +12,18 @@ Aplicação Django (painel web + API) que consome a [API PacoteVício](https://r
 - **E-mail opcional** em entregas/atrasos (configurar `PACOTE_NOTIFY_EMAIL`).
 - **Cron 3×/dia** (08:40, 13:00, 19:00 America/Sao_Paulo) via management command `sync_trackings`.
 
+## Rodar local
+
+```bash
+make setup            # venv, deps, migrate, createsuperuser
+make dev              # python manage.py runserver
+make test             # suite completa (apps)
+make sync             # dispara sincronização manual
+```
+
+O backend de e-mail é opcional: configure `PACOTE_NOTIFY_EMAIL`/`DJANGO_DEFAULT_FROM_EMAIL`
+para receber avisos de entrega/atraso (sem valor, não envia).
+
 ## Stack
 
 Python 3.12 (prod) · Django 5.2 · Django REST Framework · djangorestframework-api-key · django-environ · requests · whitenoise · PostgreSQL (prod) / SQLite (dev) · gunicorn.

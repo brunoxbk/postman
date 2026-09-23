@@ -33,8 +33,8 @@ class Package(models.Model):
     status_code = models.CharField(max_length=64, blank=True)
     status_label = models.CharField(max_length=255, blank=True)
     location = models.CharField(max_length=255, blank=True)
-    last_event_at = models.DateTimeField(null=True, blank=True)
-    estimated_delivery = models.DateField(null=True, blank=True)
+    last_event_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    estimated_delivery = models.DateField(null=True, blank=True, db_index=True)
     state = models.CharField(
         max_length=20,
         choices=STATE_CHOICES,

@@ -78,7 +78,7 @@ def _apply_events(package: Package, normalized) -> None:
 
 def sync_package(package: Package, client: PacoteVicioClient | None = None) -> bool | None:
     if SyncLog.is_paused():
-        package.last_error = "Cota mensal atingida — sincronização pausada."
+        package.last_error = "Cota diária atingida — sincronização pausada."
         package.save(update_fields=["last_error"])
         return None
     client = client or PacoteVicioClient()

@@ -2426,4 +2426,15 @@ Implementadas (commits após `77f84a6`):
 - **Detail**: timeline agrupada por data (`{% ifchanged %}`), botão **raw** por evento com
   `pretty_json` (templatetag `apps/trackings/templatetags/jsonify.py`). Dead code `toggle-raw` agora é usado.
 - **Páginas 404/500** customizadas; sessão de 12h (`SESSION_COOKIE_AGE`).
-- **Testes**: +16 → **78 testes** verdes; `check --deploy` limpo.
+- **Testes**: +16 → **71 testes** verdes; `check --deploy` limpo.
+
+### Round 3 — ops/privacidade/UX/DX ✅
+
+- **Índices**: `db_index` em `estimated_delivery` e `last_event_at` (migração `0003_indexes_eta_and_last_event`).
+- **`sync_trackings`**: sai com **exit code ≠ 0** quando há erro/pausa (cron monitora); flags `--quiet` e mensagem de warning na pausa.
+- **Gunicorn**: `Procfile` com `--workers ${WEB_CONCURRENCY:-2} --threads 2`.
+- **Admin**: ação **"Re-sincronizar encomendas selecionadas"** + coluna `last_synced_at` no `PackageAdmin`; `date_hierarchy`/filtro por transportadora no `TrackingEventAdmin`.
+- **Privacidade API**: `EventSerializer` sem o campo `raw` (payloads das transportadoras podem conter nome/telefone/endereço do destinatário); raw continua no admin/painel. Mensagens de pausa unificadas em "Cota diária".
+- **UX**: dashboard com **auto-refresh** leve (fetch do corpo a cada 60s); botões com lock anti-duplo-clique (`js-lock` + "Sincronizando…"); botão **copiar código** + contador de eventos no detail.
+- **DX**: `Makefile` (`setup/dev/test/sync/check/migrate`), **quickstart no README**, `.editorconfig`.
+- **Testes**: +9 → **80 testes** verdes; prod smoke ok (health/schema/404/estáticos).

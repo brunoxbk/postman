@@ -22,7 +22,7 @@ class HealthView(APIView):
 class EventSerializer(serializers.ModelSerializer):
     class Meta:
         model = TrackingEvent
-        fields = ("occurred_at", "status_key", "status_label", "location", "raw")
+        fields = ("occurred_at", "status_key", "status_label", "location")
 
 
 class PackageSerializer(serializers.ModelSerializer):

@@ -37,6 +37,9 @@ dokku domains:add postman postman.example.com
 dokku letsencrypt:enable postman   # plugin https://github.com/dokku/dokku-letsencrypt
 ```
 
+> O `Procfile` sobe o Gunicorn com **2 workers × 2 threads** por padrão. Altere com
+> `dokku config:set postman WEB_CONCURRENCY=4` (1 worker já basta para volumes baixos).
+
 ## 3. Fazer o push
 
 Da sua máquina (o repositório tem origin apontando para o Dokku):
@@ -76,6 +79,14 @@ crontab -e
 
 Se o fuso do host não for America/Sao_Paulo, prefixe com `CRON_TZ=America/Sao_Paulo`
 (disponível no cronie/Vixie recentes) ou converta os horários para o fuso do host.
+
+O command sai com **código ≠ 0** quando alguma encomenda falhou ou a cota foi
+atingida — assim o crontab pode alertar (ex.: `> /dev/null` que não silencia stderr;
+mude para `2>&1` e monitore pela saída). Use `--quiet` para imprimir só os totais:
+
+```cron
+40 8 * * * dokku run postman python manage.py sync_trackings --quiet 2>>/var/log/sync.log || echo "sync falhou" >>/var/log/sync.log
+```
 
 Valide manualmente antes de confiar no cron:
 

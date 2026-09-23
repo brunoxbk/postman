@@ -16,16 +16,17 @@
   {% endif %}
   <p class="meta-status">{{ package.status_label|default:"—" }} — {{ package.location|default:"—" }}</p>
   <div class="meta-actions">
-    <form method="post" action="{% url 'package_sync_now' package.tracking_code %}">
+    <form method="post" action="{% url 'package_sync_now' package.tracking_code %}" class="js-lock">
       {% csrf_token %}
       <button type="submit" class="btn btn-primary">↻ Atualizar agora</button>
     </form>
     <a class="btn btn-secondary" href="{% url 'package_edit' package.tracking_code %}">Editar</a>
     <a class="btn btn-danger" href="{% url 'package_delete' package.tracking_code %}">Excluir</a>
+    <button type="button" id="copy-code" class="btn btn-secondary" data-code="{{ package.tracking_code }}">Copiar código</button>
   </div>
   {% if package.last_error %}<div class="warn">{{ package.last_error }}</div>{% endif %}
 </div>
-<h2>Linha do tempo</h2>
+<h2>Linha do tempo <span class="count">({{ events|length }})</span></h2>
 <ul class="timeline timeline-{{ package.state }}">
   {% for e in events %}
     {% ifchanged e.occurred_at|date:"Ymd" %}

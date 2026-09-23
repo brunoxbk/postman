@@ -100,9 +100,25 @@ class WebTestCase(TestCase):
         self.assertEqual(resp.status_code, 302)
         self.assertEqual(resp.url, "/packages/AM101610575BR/")
 
+    def test_dashboard_auto_refreshes(self):
+        self.login()
+        resp = self.client.get("/")
+        self.assertContains(resp, "data-auto-refresh")
+        self.assertContains(resp, 'data-interval="60000"')
+
+    def test_detail_has_lock_copy_count(self):
+        self.login()
+        p = Package.objects.create(tracking_code="AM101610575BR", carrier="correios")
+        p.events.create(occurred_at="2025-03-03 23:30:03", status_key="BDE",
+                        status_label="Entregue", fingerprint="f1")
+        resp = self.client.get(f"/packages/{p.tracking_code}/")
+        self.assertContains(resp, 'class="js-lock"')
+        self.assertContains(resp, 'id="copy-code"')
+        self.assertContains(resp, "(1)")
+
     def test_sync_now_quota_paused_message(self):
         self.login()
         Package.objects.create(tracking_code="AM101610575BR", carrier="correios")
         with mock.patch("apps.trackings.views.sync_package", return_value=None):
             resp = self.client.post("/packages/AM101610575BR/sync/", follow=True)
-        self.assertContains(resp, "Cota mensal atingida")
+        self.assertContains(resp, "Cota diária atingida")

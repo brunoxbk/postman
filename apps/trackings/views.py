@@ -104,7 +104,7 @@ def package_sync_now(request, tracking_code):
     package = get_object_or_404(Package, tracking_code__iexact=tracking_code)
     result = sync_package(package)
     if result is None:
-        messages.warning(request, "Cota mensal atingida — sincronização pausada.")
+        messages.warning(request, "Cota diária atingida — sincronização pausada.")
     elif result is False:
         messages.error(request, package.last_error or "Erro ao sincronizar.")
     else:

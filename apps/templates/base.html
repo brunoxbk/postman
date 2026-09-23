@@ -8,7 +8,7 @@
   <link rel="icon" type="image/svg+xml" href="{% static 'img/favicon.svg' %}">
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
 </head>
-<body>
+<body{% block body_attrs %}{% endblock %}>
 <header class="topbar">
   <div class="container">
     <a class="brand" href="{% url 'dashboard' %}">📦 Rastreador</a>
