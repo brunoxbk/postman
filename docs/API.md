@@ -7,6 +7,12 @@ Todo endpoint exige o cabeçalho:
 Authorization: Api-Key <CHAVE>
 ```
 
+> **Implementação:** como o pacote removeu a classe de autenticação nativa na v3.1, a
+> aplicação usa a classe customizada `apps/trackings.auth.APIKeyAuthentication`
+> (`REST_FRAMEWORK.DEFAULT_AUTHENTICATION_CLASSES`). Na prática o comportamento é o
+> mesmo: o header acima é validado e, se ausente/inválido, a resposta é **401** com o
+> cabeçalho `WWW-Authenticate: Api-Key`.
+
 ## Gerar a chave
 
 Pelo admin (App API keys) ou pelo shell:

@@ -10,6 +10,16 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-23-postman-rastreamento-design.md`
 
+> **Nota de execução (pós-implementação):** este plano foi executado por completo e os
+> trechos abaixo já refletem o que está no repositório. Divergências aplicadas durante a
+> implementação: `config/settings/base.py` usa autenticação customizada
+> (`apps.trackings.auth.APIKeyAuthentication`) pois `djangorestframework-api-key` ≥ 3.1
+> removeu `rest_framework_api_key.authentication`; `dev.py` usa `BASE_DIR / "db.sqlite3"`;
+> `prod.py` ganhou `SECURE_SSL_REDIRECT` + HSTS; os adapters normalizam eventos em ordem
+> **decrescente** e o Correios usa o campo `codigo` como `status_key`; o padrão Total
+> Express aceita o sufixo `tx`; `sync_package` não tem o parâmetro `enforce_cota`;
+> o teste de `SyncLog` usa `count_today()` (não `increment_and_get_count`).
+
 ## Global Constraints
 
 - Versões: Python 3.12 (prod), `Django~=5.2`, `djangorestframework~=3.16`, `psycopg[binary]>=3.2`. Local dev Python 3.10+ é aceitável.
@@ -246,7 +256,7 @@ COTA_MENSAL = env("COTA_MENSAL")
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework_api_key.authentication.APIKeyAuthentication",
+        "apps.trackings.auth.APIKeyAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework_api_key.permissions.HasAPIKey",
@@ -263,17 +273,21 @@ LOGOUT_REDIRECT_URL = "login"
 `config/settings/dev.py`:
 ```python
 from .base import *  # noqa: F401,F403
-from .base import env
-
-env.read_env()  # já lido na base
+from .base import BASE_DIR
 
 DEBUG = True
 SECRET_KEY = "dev-only-insecure-key-nao-usar-em-prod"
 ALLOWED_HOSTS = ["*"]
-DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": env.str("DJANGO_SQLITE_PATH", default="/app/db.sqlite3")}}
+
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": str(BASE_DIR / "db.sqlite3"),
+    }
+}
 ```
 
-**Nota dev:** usar `BASE_DIR / "db.sqlite3"` como default do sqlite — ajustar para `/app/db.sqlite3` apenas quando rodando dentro do container Dokku? Manter simples: `NAME: str(BASE_DIR / "db.sqlite3")`. Em prod o `DATABASE_URL` de Postgres sobrescreve (ver prod.py).
+> Em prod o `DATABASE_URL` de Postgres sobrescreve (ver `prod.py`).
 
 `config/settings/prod.py`:
 ```python
@@ -294,8 +308,12 @@ STORAGES = {
 }
 
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+SECURE_SSL_REDIRECT = True
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
+SECURE_HSTS_SECONDS = 31536000
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = True
 ```
 
 `config/urls.py`:
@@ -405,10 +423,15 @@ git add -A && git commit -m "chore: scaffolding do projeto django"
 
 `apps/trackings/tests/test_models.py`:
 ```python
-from datetime import date
+from django.db import IntegrityError
 from django.test import TestCase
+
 from apps.carriers.constants import CARRIER_CORREIOS
-from apps.trackings.models import Package, TrackingEvent, STATE_IN_TRANSIT
+from apps.trackings.models import (
+    Package,
+    TrackingEvent,
+    STATE_IN_TRANSIT,
+)
 
 
 class PackageModelTestCase(TestCase):
@@ -419,6 +442,7 @@ class PackageModelTestCase(TestCase):
             state=STATE_IN_TRANSIT,
         )
         p.mark_terminal("ENTREGUE", "delivered")
+        p.save()  # mark_terminal só altera o objeto em memória — persistir
         p.refresh_from_db()
         self.assertFalse(p.is_active)
         self.assertEqual(p.state, "delivered")
@@ -428,20 +452,21 @@ class PackageModelTestCase(TestCase):
 class TrackingEventFingerprintTestCase(TestCase):
     def test_dedupe_by_fingerprint(self):
         p = Package.objects.create(tracking_code="X1", carrier=CARRIER_CORREIOS)
-        ev = TrackingEvent.objects.create(
+        TrackingEvent.objects.create(
             package=p,
             status_key="BDE",
             status_label="Entregue",
             fingerprint="fp-1",
         )
-        self.assertRaises(Exception, lambda: TrackingEvent.objects.create(
-            package=p, status_key="BDE", status_label="Entregue", fingerprint="fp-1"))
+        with self.assertRaises(IntegrityError):
+            TrackingEvent.objects.create(
+                package=p, status_key="BDE", status_label="Entregue", fingerprint="fp-1")
 ```
 
 `apps/core/tests/test_synclog.py`:
 ```python
-from datetime import date
 from django.test import TestCase
+
 from apps.core.models import SyncLog
 
 
@@ -449,7 +474,12 @@ class SyncLogTestCase(TestCase):
     def test_increment_same_day(self):
         SyncLog.increment()
         SyncLog.increment()
-        self.assertEqual(SyncLog.increment_and_get_count(), 3)
+        SyncLog.increment()
+        self.assertEqual(SyncLog.count_today(), 3)
+
+    def test_count_today_isolation(self):
+        SyncLog.increment()
+        self.assertEqual(SyncLog.count_today(), 1)
 ```
 
 - [ ] **Step 2: Rodar o teste para falhar**
@@ -566,20 +596,13 @@ class TrackingEvent(models.Model):
 
     @staticmethod
     def make_fingerprint(package_id: int, occurred_at, status_key: str, status_label: str) -> str:
-        stamp = getattr(occurred_at, "isoformat")().replace("+00:00", "") if occurred_at else "None"
-        base = f"{package_id};{stamp};{status_key};{status_label}"
+        stamp = occurred_at.isoformat() if occurred_at else ""
+        base = f"{package_id};{stamp};{status_key};{status_label}".lower()
         return hashlib.sha1(base.encode("utf-8")).hexdigest()
 ```
 
-**Ajuste dev:** a lógica de fingerprint usa helper limpo:
-```python
-@staticmethod
-def make_fingerprint(package_id: int, occurred_at, status_key: str, status_label: str) -> str:
-    stamp = occurred_at.isoformat() if occurred_at else ""
-    base = f"{package_id};{stamp};{status_key};{status_label}".lower()
-    return hashlib.sha1(base.encode("utf-8")).hexdigest()
-```
-(usar a segunda versão — sem `.replace mal escrito.)
+> **Ajuste aplicado:** a versão acima (com `.lower()` e sem o `.replace` quebrado) é a
+> que está implementada em `apps/trackings/models.py`.
 
 `apps/core/models.py`:
 ```python
@@ -1034,7 +1057,7 @@ class AdaptersTestCase(SimpleTestCase):
         self.assertEqual(n.tracking_code, "AMZB901884819tx")
         self.assertTrue(n.is_terminal)
         self.assertEqual(len(n.events), 7)
-        self.assertEqual(n.estimated_delivery, "2026-03-23")
+        self.assertEqual(n.estimated_delivery.isoformat(), "2026-03-23")
 
     def test_detect(self):
         cases = [
@@ -1146,7 +1169,7 @@ class CorreiosAdapter(BaseAdapter):
             location = " / ".join(x for x in (city, uf) if x)
             events.append(EventData(
                 occurred_at=to_aware(dt) if dt else None,
-                status_key=_clean(ev.get("descricao")),
+                status_key=_clean(ev.get("codigo")),
                 status_label=_clean(ev.get("descricaoWeb") or ev.get("descricao")),
                 location=location,
                 raw=ev,
@@ -1155,13 +1178,13 @@ class CorreiosAdapter(BaseAdapter):
             any(_clean(ev.get("finalizador")).upper() == "S" for ev in raw.get("eventos", []))
             or raw.get("situacao") == "E"
         )
-        events.sort(key=lambda e: e.occurred_at or datetime.max)
+        events.sort(key=lambda e: e.occurred_at or datetime.min, reverse=True)
         return NormalizedPayload(
             tracking_code=raw.get("codObjeto", ""),
             status_code=_clean(raw.get("situacao")),
-            status_label=events[-1].status_label if events else "",
-            location=events[-1].location if events else "",
-            last_event_at=events[-1].occurred_at if events else None,
+            status_label=events[0].status_label if events else "",
+            location=events[0].location if events else "",
+            last_event_at=events[0].occurred_at if events else None,
             estimated_delivery=parse_date(_clean(raw.get("dtPrevista"))),
             is_terminal=is_terminal,
             events=events,
@@ -1189,21 +1212,21 @@ class AliExpressAdapter(BaseAdapter):
                 raw=ev,
             ))
         status = _clean(raw.get("status"))
-        isTerminalHint = _clean(raw.get("statusDesc"))
+        status_desc = _clean(raw.get("statusDesc"))
         eta = raw.get("globalEtaInfo") or {}
         est = None
         mms = eta.get("deliveryMaxTime")
         if mms:
             est = date.fromtimestamp(int(mms) / 1000)
-        events.sort(key=lambda e: e.occurred_at or datetime.max)
+        events.sort(key=lambda e: e.occurred_at or datetime.min, reverse=True)
         return NormalizedPayload(
             tracking_code=raw.get("mailNo", ""),
             status_code=status,
-            status_label=isTerminalHint,
+            status_label=status_desc,
             location="",
-            last_event_at=events[-1].occurred_at if events else None,
+            last_event_at=events[0].occurred_at if events else None,
             estimated_delivery=est,
-            is_terminal="deliver" in (status + " " + isTerminalHint).lower(),
+            is_terminal="deliver" in (status + " " + status_desc).lower(),
             events=events,
             raw=raw,
         )
@@ -1227,13 +1250,13 @@ class ShopeeAdapter(BaseAdapter):
                 raw=ev,
             ))
         status = _clean(raw.get("current_status"))
-        events.sort(key=lambda e: e.occurred_at or datetime.max)
+        events.sort(key=lambda e: e.occurred_at or datetime.min, reverse=True)
         return NormalizedPayload(
             tracking_code=raw.get("sls_tracking_number", ""),
             status_code=status,
             status_label=status,
-            location=events[-1].location if events else "",
-            last_event_at=events[-1].occurred_at if events else None,
+            location=events[0].location if events else "",
+            last_event_at=events[0].occurred_at if events else None,
             estimated_delivery=None,
             is_terminal="delivered" in status.lower(),
             events=events,
@@ -1258,13 +1281,13 @@ class AnjunAdapter(BaseAdapter):
                 raw=ev,
             ))
         status = _clean(raw.get("lastTrackStatus"))
-        events.sort(key=lambda e: e.occurred_at or datetime.max)
+        events.sort(key=lambda e: e.occurred_at or datetime.min, reverse=True)
         return NormalizedPayload(
             tracking_code=raw.get("trackNo", ""),
             status_code=status,
-            status_label=events[-1].status_label if events else "",
-            location=events[-1].location if events else "",
-            last_event_at=events[-1].occurred_at if events else None,
+            status_label=events[0].status_label if events else "",
+            location=events[0].location if events else "",
+            last_event_at=events[0].occurred_at if events else None,
             estimated_delivery=None,
             is_terminal="signed" in status.lower(),
             events=events,
@@ -1290,13 +1313,13 @@ class JTExpressAdapter(BaseAdapter):
                 raw=ev,
             ))
         is_terminal = any(str(e.get("code", "")).strip() == "100" for e in details)
-        events.sort(key=lambda e: e.occurred_at or datetime.max)
+        events.sort(key=lambda e: e.occurred_at or datetime.min, reverse=True)
         return NormalizedPayload(
             tracking_code=raw.get("keyword", ""),
             status_code=str(details[0].get("code", "")) if details else "",
             status_label=_clean(details[0].get("status")) if details else "",
-            location=events[-1].location if events else "",
-            last_event_at=events[-1].occurred_at if events else None,
+            location=events[0].location if events else "",
+            last_event_at=events[0].occurred_at if events else None,
             estimated_delivery=None,
             is_terminal=is_terminal,
             events=events,
@@ -1329,13 +1352,13 @@ class TotalExpressAdapter(BaseAdapter):
                         location="",
                         raw=st,
                     ))
-        events.sort(key=lambda e: e.occurred_at or datetime.max)
+        events.sort(key=lambda e: e.occurred_at or datetime.min, reverse=True)
         return NormalizedPayload(
             tracking_code=encomenda.get("awb", ""),
             status_code=str(encomenda.get("ultimoStatusId", "")),
-            status_label=events[-1].status_label if events else "",
+            status_label=events[0].status_label if events else "",
             location="",
-            last_event_at=events[-1].occurred_at if events else None,
+            last_event_at=events[0].occurred_at if events else None,
             estimated_delivery=parse_date(_clean(encomenda.get("previsaoEntrega"))),
             is_terminal=is_terminal,
             events=events,
@@ -1359,7 +1382,7 @@ _PATTERNS = {
     CARRIER_SHOPEE: re.compile(r"^BR\d{12,}$"),
     CARRIER_ANJUN: re.compile(r"^AJ\d{6,}$", re.I),
     CARRIER_JTEXPRESS: re.compile(r"^\d{10,18}$"),
-    CARRIER_TOTALEXPRESS: re.compile(r"^[A-Z]{3,5}\d{6,}[tx]?$", re.I),
+    CARRIER_TOTALEXPRESS: re.compile(r"^[A-Z]{3,5}\d{6,}(?:[tx]{1,2})?$", re.I),
 }
 
 
@@ -1377,6 +1400,8 @@ Run: `python manage.py test apps.carriers -v 2`
 Expected: PASS (10 testes: 7 adapter + 2 JT + detect + registered).
 
 Notas de verificação:
+- Eventos são normalizados em ordem **decrescente** (mais recente primeiro); `events[0]`
+  é o último evento (o teste espera `events[0].status_key == "BDE"`).
 - `test_correios_normalize`: último evento é BDE "ENTREGUE" — `status_label` = "ENTREGUE".
 - `test_jtexpress_normalize`: primeiro detail tem `code` 100 → `status_code` "100" e terminal.
 - `test_totalexpress_normalize`: 7 eventos no fixture (1+2+2+2) → o teste usa `len(n.events), 7` e previsão "2026-03-23".
@@ -1398,7 +1423,7 @@ git add -A && git commit -m "feat: adapters das 6 transportadoras + detecção a
 **Interfaces:**
 - Consumes: `apps.carriers.adapters.ADAPTERS/get_adapter/detect_carrier`, `apps.carriers.client.PacoteVicioClient`, `payload.NormalizedPayload`, `apps.trackings.models` (Package, TrackingEvent, make_fingerprint), `apps.core.models.SyncLog`, `settings.COTA_MENSAL`.
 - Produces:
-  - `apps.carriers.sync.sync_package(package, client=None, enforce_cota=True) -> bool` (True = ok, False = erro registrado).
+  - `apps.carriers.sync.sync_package(package, client=None) -> bool | None` (True = ok, False = erro controlado, None = pausado pela cota; não há o parâmetro `enforce_cota`).
   - `apps.trackings.management.commands.sync_trackings.Command` — `handle(self, *args, **opts)`.
   - fluxo do `sync_package`: consulta cota (`SyncLog.is_paused()`), build params do adapter, `client.fetch(host_path, params)`, `normalize`, atualiza eventos (dedupe via fingerprint), marca estado/atraso, `mark_terminal` se terminal, grava `last_raw`, `last_error`. Propagate de erros 4xx → `last_error` sem retentar. 5xx/timeout → sobe erro (retenta próximo cron). Retorna/`raise`.
 
@@ -1583,6 +1608,7 @@ git add -A && git commit -m "feat: sincronização de tracking + management comm
 
 **Files:**
 - Create: `apps/trackings/api.py` (serializers + viewsets)
+- Create: `apps/trackings/auth.py` (autenticação customizada `APIKeyAuthentication`)
 - Modify: `apps/trackings/api_urls.py`
 - Test: `apps/trackings/tests/test_api.py`
 
@@ -1646,6 +1672,35 @@ Run: `python manage.py test apps.trackings -v 2`
 Expected: 404s (sem rotas), e "no module".
 
 - [ ] **Step 3: Implementar**
+
+> **Nota:** o pacote `djangorestframework-api-key` a partir da v3.1 removeu o módulo
+> `rest_framework_api_key.authentication`. Por isso a autenticação é customizada em
+> `apps/trackings/auth.py` (referenciada em `base.py` →
+> `DEFAULT_AUTHENTICATION_CLASSES`). O `authenticate_header` é **obrigatório** para o DRF
+> responder 401 (sem ele, o DRF converte `AuthenticationFailed` em 403).
+
+`apps/trackings/auth.py`:
+```python
+from rest_framework.authentication import BaseAuthentication
+from rest_framework.exceptions import AuthenticationFailed
+from rest_framework_api_key.models import APIKey
+from rest_framework_api_key.permissions import KeyParser
+
+
+class APIKeyAuthentication(BaseAuthentication):
+    key_parser = KeyParser()
+
+    def authenticate_header(self, request):
+        return "Api-Key"
+
+    def authenticate(self, request):
+        key = self.key_parser.get(request)
+        if not key:
+            raise AuthenticationFailed("Chave de API ausente.")
+        if not APIKey.objects.is_valid(key):
+            raise AuthenticationFailed("Chave de API inválida.")
+        return (None, key)
+```
 
 `apps/trackings/api.py`:
 ```python
@@ -2322,7 +2377,7 @@ Expected: todos testes PASS. `python manage.py check --deploy` com env prod pode
 - Cliente HTTP: `PacoteVicioClient.fetch(path, params)`; cada adapter expõe `.host_path` (`/correios`, `/aliexpress`, etc.) e `sync.py` chama `client.fetch(adapter.host_path, params)`. ✅
 - `EventData(occurred_at, status_key, status_label, location, raw)` e `NormalizedPayload(tracking_code, status_code, status_label, location, last_event_at, estimated_delivery, is_terminal, events, raw)` — nomes/ordem idênticos em todos os adapters e em `_apply_events`. ✅
 - `TrackingEvent.make_fingerprint(package_id, occurred_at, status_key, status_label)` definida na Task 2, usada na Task 5. ✅
-- `SyncLog`: `increment()` e `is_paused()` usados em `sync.py`; o teste usa apenas `increment` (não usa `count_today`/`increment_and_get_count`, porém ambos existem e são inofensivos). ✅
+- `SyncLog`: `increment()`, `count_today()`, `increment_and_get_count()` e `is_paused()` existem; `sync.py` usa `increment()` e `is_paused()`, o teste de `SyncLog` usa `count_today()`. ✅
 - Import único de `detect_carrier` de `apps.carriers.adapters` (usado em forms, api e testes). ✅
 
 ### Notas finais já refletidas no plano

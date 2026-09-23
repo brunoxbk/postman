@@ -74,6 +74,28 @@ print(key)
 "
 ```
 
+## Autenticação da API (chave de API)
+
+A API `/api/v1/` é protegida por chave (`djangorestframework-api-key`). Como o pacote
+removeu o módulo de autenticação nativo na v3.1, existe uma classe customizada em
+`apps/trackings/auth.py` (`APIKeyAuthentication`) conectada via
+`REST_FRAMEWORK.DEFAULT_AUTHENTICATION_CLASSES` em `config/settings/base.py`.
+
+Ela lê o cabeçalho `Authorization: Api-Key <chave>` (via `KeyParser` do pacote) e valida
+contra `APIKey.objects.is_valid()`. O método `authenticate_header()` retorna `"Api-Key"` —
+sem ele o DRF converte as falhas de autenticação de 401 para 403. A permissão
+`rest_framework_api_key.permissions.HasAPIKey` continua como default.
+
+Gerar uma chave:
+
+```bash
+python manage.py shell -c "
+from rest_framework_api_key.models import APIKey
+k, key = APIKey.objects.create_key(name='hermes-agent')
+print(key)
+"
+```
+
 ## Estrutura dos apps
 
 - `apps/core` — `SyncLog` (+ testes de config)
