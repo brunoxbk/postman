@@ -1,0 +1,43 @@
+{
+  "mailNo": "LP00123456789CN",
+  "originCountry": "Mainland China",
+  "destCountry": "Brazil",
+  "status": "CLEAR_CUSTOMS",
+  "statusDesc": "In customs",
+  "mailNoSource": "AE",
+  "globalEtaInfo": {
+    "etaDesc": "Estimated delivery by",
+    "deliveryMinTime": 1749006268984,
+    "deliveryMaxTime": 1750475068984
+  },
+  "detailList": [
+    {
+      "time": 1748410407000,
+      "timeStr": "2025-05-28 13:33:27",
+      "desc": "",
+      "standerdDesc": "Import customs clearance complete",
+      "descTitle": "Carrier note:",
+      "timeZone": "GMT-3",
+      "actionCode": "CC_IM_SUCCESS"
+    },
+    {
+      "time": 1747839077000,
+      "timeStr": "2025-05-21 22:51:17",
+      "desc": "",
+      "standerdDesc": "[Shatian Town] Processing at sorting center",
+      "descTitle": "Carrier note:",
+      "timeZone": "GMT+8",
+      "actionCode": "SC_INBOUND_SUCCESS"
+    },
+    {
+      "time": 1747805584000,
+      "timeStr": "2025-05-21 13:33:04",
+      "desc": "",
+      "standerdDesc": "Received by logistics company",
+      "descTitle": "Carrier note:",
+      "timeZone": "GMT+8",
+      "actionCode": "PU_PICKUP_SUCCESS"
+    }
+  ],
+  "daysNumber": "8\tday(s)"
+}

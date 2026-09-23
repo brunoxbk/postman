@@ -1,0 +1,68 @@
+{
+  "codObjeto": "AM101610575BR",
+  "tipoPostal": {
+    "sigla": "AM",
+    "descricao": "ETIQUETA LOGICA PAC",
+    "categoria": "ENCOMENDA PAC",
+    "tipo": "N"
+  },
+  "dtPrevista": "20/03/2025",
+  "modalidade": "F",
+  "eventos": [
+    {
+      "codigo": "BDE",
+      "tipo": "01",
+      "dtHrCriado": {
+        "date": "2025-03-03 23:30:03.000000",
+        "timezone_type": 3,
+        "timezone": "America/Sao_Paulo"
+      },
+      "descricao": "Objeto entregue ao destinatário",
+      "unidade": {
+        "codSro": "50630977",
+        "tipo": "Unidade de Tratamento",
+        "endereco": {
+          "cidade": "Recife",
+          "uf": "PE"
+        }
+      },
+      "unidadeDestino": null,
+      "descricaoFrontEnd": "ENTREGUE",
+      "finalizador": "S",
+      "rota": "CONTEXTO",
+      "descricaoWeb": "ENTREGUE",
+      "detalhe": "Nossa entrega atendeu às suas expectativas? Conte pra gente: https://survey3.medallia.com/?correios-nps-sms-sro&obj=AM101610575BR"
+    },
+    {
+      "codigo": "PO",
+      "tipo": "09",
+      "dtHrCriado": {
+        "date": "2025-02-24 15:51:29.000000",
+        "timezone_type": 3,
+        "timezone": "America/Sao_Paulo"
+      },
+      "descricao": "Objeto postado após o horário limite da unidade",
+      "unidade": {
+        "codSro": "65995970",
+        "tipo": "Agência dos Correios",
+        "endereco": {
+          "cidade": "Feira Nova do Maranhao",
+          "uf": "MA"
+        }
+      },
+      "unidadeDestino": null,
+      "descricaoFrontEnd": "Postado depois do horário",
+      "finalizador": "N",
+      "rota": "NORMAL",
+      "descricaoWeb": "POSTAGEM",
+      "detalhe": "Sujeito a encaminhamento no próximo dia útil"
+    }
+  ],
+  "situacao": "E",
+  "autoDeclaracao": false,
+  "encargoImportacao": false,
+  "percorridaCarteiro": false,
+  "bloqueioObjeto": false,
+  "arEletronico": false,
+  "atrasado": false
+}

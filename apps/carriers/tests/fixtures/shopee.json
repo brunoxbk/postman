@@ -1,0 +1,87 @@
+{
+  "sls_tracking_number": "BR2561249217932",
+  "need_translate": 0,
+  "delivery_type": "SHOPEE_CREDIT",
+  "recipient_name": "",
+  "phone": "",
+  "current_status": "Delivered",
+  "tracking_list": [
+    {
+      "timestamp": 1749140169,
+      "status": "Delivered",
+      "message": "[LM Hub_MG_Uberlândia] Your parcel has been delivered [Fulano da Silva] [ Receptionist]"
+    },
+    {
+      "timestamp": 1749122864,
+      "status": "Delivering",
+      "message": "[LM Hub_MG_Uberlândia] Your parcel is being delivered by courier"
+    },
+    {
+      "timestamp": 1749089703,
+      "status": "LMHub_Received",
+      "message": "[LM Hub_MG_Uberlândia] Your parcel has been received by delivery hub"
+    },
+    {
+      "timestamp": 1749034791,
+      "status": "SOC_LHTransporting",
+      "message": "Parcel [TO202506041ZAJ7] transporting to [LM Hub_MG_Uberlândia]"
+    },
+    {
+      "timestamp": 1748937958,
+      "status": "SOC_Received",
+      "message": "[SoC_SP_Santana] Your parcel has been received by sorting center"
+    },
+    {
+      "timestamp": 1748906285,
+      "status": "SOC_Pickup_Done",
+      "message": "[SoC_SP_Santana] Your parcel has been picked up"
+    },
+    {
+      "timestamp": 1748904099,
+      "status": "DOP_Received",
+      "message": "Your parcel has been received by drop off point"
+    },
+    {
+      "timestamp": 1748893392,
+      "status": "Created",
+      "message": "Order has been created"
+    }
+  ],
+  "status_list": [
+    {
+      "timestamp": 1748893392,
+      "code": 1,
+      "text": "Created",
+      "state_ls": "Created",
+      "icon": "Order Created"
+    },
+    {
+      "timestamp": 1748937958,
+      "code": 1,
+      "text": "Pending_Receive",
+      "state_ls": "Pending_Receive",
+      "icon": "Picked Up"
+    },
+    {
+      "timestamp": 1749089703,
+      "code": 1,
+      "text": "Pending",
+      "state_ls": "Pending",
+      "icon": "Sorting"
+    },
+    {
+      "timestamp": 1749122864,
+      "code": 1,
+      "text": "Assigned",
+      "state_ls": "Assigned",
+      "icon": "Courier Delivery"
+    },
+    {
+      "timestamp": 1749140169,
+      "code": 1,
+      "text": "Delivered",
+      "state_ls": "Delivered",
+      "icon": "Delivered"
+    }
+  ]
+}
