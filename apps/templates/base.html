@@ -1,0 +1,32 @@
+{% load static %}
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Rastreador de Encomendas{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+</head>
+<body>
+<header class="topbar">
+  <div class="container">
+    <a class="brand" href="{% url 'dashboard' %}">📦 Rastreador</a>
+    <nav>
+      <a href="{% url 'package_new' %}">Nova encomenda</a>
+      {% if user.is_authenticated %}
+        <a href="{% url 'logout' %}">Sair ({{ user.username }})</a>
+      {% endif %}
+    </nav>
+  </div>
+</header>
+<main class="container">
+  {% if messages %}
+    <div class="messages">
+      {% for message in messages %}<div class="message">{{ message }}</div>{% endfor %}
+    </div>
+  {% endif %}
+  {% block content %}{% endblock %}
+</main>
+<script src="{% static 'js/app.js' %}"></script>
+</body>
+</html>

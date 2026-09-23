@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Excluir {{ package.tracking_code }}?</h1>
+<form method="post">
+  {% csrf_token %}
+  <button type="submit">Excluir</button>
+  <a href="{% url 'package_detail' package.tracking_code %}">Cancelar</a>
+</form>
+{% endblock %}

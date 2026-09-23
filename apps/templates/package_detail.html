@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}{{ package.tracking_code }}{% endblock %}
+{% block content %}
+<a href="{% url 'dashboard' %}">← Voltar</a>
+<h1>{{ package.display_code }}</h1>
+<div class="meta">
+  <span class="state state-{{ package.state }}">{{ package.get_state_display }}</span>
+  {% if package.estimated_delivery %}
+    <span>Previsão: {{ package.estimated_delivery|date:"d/m/Y" }}</span>
+  {% endif %}
+  {% if package.is_delayed %}<span class="state delayed">⚠ Atrasada</span>{% endif %}
+  {% if package.carrier == "jtexpress" and package.masked_document %}
+    <span>Doc: {{ package.masked_document }}</span>
+  {% endif %}
+  {% if package.last_error %}<div class="warn">{{ package.last_error }}</div>{% endif %}
+  <p>{{ package.status_label }} — {{ package.location }}</p>
+  <a class="btn" href="{% url 'package_sync_now' package.tracking_code %}">Atualizar agora</a>
+  <a class="btn" href="{% url 'package_edit' package.tracking_code %}">Editar</a>
+</div>
+<h2>Linha do tempo</h2>
+<ul class="timeline">
+  {% for e in events %}
+    <li>
+      <span class="time">{{ e.occurred_at|date:"d/m/Y H:i" }}</span>
+      <span class="lab">{{ e.status_label }}</span>
+      {% if e.location %}<span class="loc">{{ e.location }}</span>{% endif %}
+    </li>
+  {% empty %}
+    <li>Sem eventos ainda.</li>
+  {% endfor %}
+</ul>
+{% endblock %}

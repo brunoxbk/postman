@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Minhas encomendas</h1>
+<div class="cards">
+  <div class="card"><span class="num">{{ count_in_transit }}</span><span>Em trânsito</span></div>
+  <div class="card"><span class="num">{{ count_delivered }}</span><span>Entregues</span></div>
+  <div class="card"><span class="num">{{ count_delayed }}</span><span>Atrasadas</span></div>
+</div>
+<form method="get" class="filters">
+  <input name="q" value="{{ filter_q }}" placeholder="Buscar código">
+  <select name="state">
+    <option value="">Estado</option>
+    <option value="in_transit" {% if filter_state == "in_transit" %}selected{% endif %}>Em trânsito</option>
+    <option value="delivered" {% if filter_state == "delivered" %}selected{% endif %}>Entregue</option>
+    <option value="failed" {% if filter_state == "failed" %}selected{% endif %}>Falha</option>
+    <option value="returned" {% if filter_state == "returned" %}selected{% endif %}>Devolvida</option>
+  </select>
+  <button type="submit">Filtrar</button>
+  <a href="{% url 'dashboard' %}">Limpar</a>
+  <a class="btn" href="{% url 'package_new' %}">+ Nova</a>
+</form>
+<table>
+  <thead><tr><th>Código</th><th>Transportadora</th><th>Status</th><th>Local</th><th>Último evento</th><th></th></tr></thead>
+  <tbody>
+  {% for p in packages %}
+    <tr class="{% if p.is_delayed %}delayed{% endif %}">
+      <td><a href="{% url 'package_detail' p.tracking_code %}">{{ p.tracking_code }}</a></td>
+      <td>{{ p.get_carrier_display }}</td>
+      <td>{{ p.status_label }}
+        {% if p.is_delayed %}<span class="state delayed">⚠ Atrasada</span>{% endif %}
+      </td>
+      <td>{{ p.location }}</td>
+      <td>{{ p.last_event_at|date:"d/m/Y H:i" }}</td>
+      <td><a href="{% url 'package_detail' p.tracking_code %}">ver</a></td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="6">Nenhuma encomenda.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
