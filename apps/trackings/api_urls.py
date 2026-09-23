@@ -1,3 +1,12 @@
-from django.urls import path
+from django.urls import include, path
+from rest_framework.routers import DefaultRouter
 
-urlpatterns = []
+from apps.trackings.api import HealthView, PackageViewSet
+
+router = DefaultRouter()
+router.register("packages", PackageViewSet, basename="packages")
+
+urlpatterns = [
+    path("v1/", include(router.urls)),
+    path("v1/health/", HealthView.as_view(), name="health"),
+]

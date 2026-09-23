@@ -94,7 +94,7 @@ COTA_MENSAL = env("COTA_MENSAL")
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework_api_key.authentication.APIKeyAuthentication",
+        "apps.trackings.auth.APIKeyAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework_api_key.permissions.HasAPIKey",
