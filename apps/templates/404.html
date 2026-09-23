@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Página não encontrada{% endblock %}
+{% block content %}
+<div class="empty-state">
+  <div class="empty-icon">🔍</div>
+  <h1>Página não encontrada</h1>
+  <p>A página que você procurou não existe ou foi removida.</p>
+  <a class="btn btn-primary" href="{% url 'dashboard' %}">Voltar ao início</a>
+</div>
+{% endblock %}

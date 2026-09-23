@@ -24,9 +24,10 @@ dokku config:set postman \
   PACOTE_VICIO_API_KEY="sua-chave-rapidapi" \
   PACOTE_VICIO_BASE_URL=https://api.pacotevicio.dev \
   PACOTE_VICIO_TIMEOUT=35 \
-  COTA_MENSAL=900 \
+  COTA_DIARIA=900 \
   PACOTE_NOTIFY_EMAIL="voce@example.com" \
-  DJANGO_DEFAULT_FROM_EMAIL="postman@example.com"
+  DJANGO_DEFAULT_FROM_EMAIL="postman@example.com" \
+  PUBLIC_BASE_URL=https://postman.example.com
 ```
 
 `DATABASE_URL` já é injetada pelo plugin `postgres:link`. Habilite HTTPS e o domínio:
@@ -87,8 +88,12 @@ dokku run postman python manage.py sync_trackings
 Para uso por monitors/uptime e pós-deploy:
 
 ```bash
-curl -H "Authorization: Api-Key $KEY" https://postman.example.com/api/v1/health/
+curl https://postman.example.com/api/v1/health/
 ```
+
+> **Health é público** (sem `Api-Key`). Os demais endpoints exigem o header
+> `Authorization: Api-Key $KEY`. O schema OpenAPI também é público em
+> `https://postman.example.com/api/v1/schema/`.
 
 ## 7. Atualizações
 
@@ -104,7 +109,7 @@ dokku logs postman -t
 - **`ALLOWED_HOSTS`**: inclua o domínio público; no dev usamos `["*"]`.
 - **Static não carrega**: certifique-se de que `whitenoise` está no middleware (já está)
   e que o `collectstatic` rodou.
-- **Cota estourando**: monitore `/admin/` (SyncLog) e ajuste `COTA_MENSAL`.
+- **Cota estourando**: monitore `/admin/` (SyncLog) e ajuste `COTA_DIARIA`.
 - **E-mails**: se `PACOTE_NOTIFY_EMAIL` estiver preenchido, o cron envia 1 e-mail na
   entrega e 1 na 1ª detecção de atraso. Configure `EMAIL_HOST`/`EMAIL_PORT`/`EMAIL_HOST_USER`/
   `EMAIL_HOST_PASSWORD`/`EMAIL_USE_TLS` no Dokku conforme seu SMTP (defaults do Django).

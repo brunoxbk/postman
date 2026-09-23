@@ -111,12 +111,11 @@ Estados terminais (`TERMINAL_STATES`): `delivered`, `failed`, `returned`, `inact
 Assim que o rastreio chega em estado final (`is_terminal=True` no payload), a encomenda
 vira `is_active=False` e sai da fila de sincronização do cron — economizando cota.
 
-### 6. Cota mensal (RapidAPI)
+### 6. Cota diária (RapidAPI)
 
 `core.models.SyncLog` guarda o total de requisições do dia. O campo `quota_limit` é
-inicializado com `COTA_MENSAL` (default 900) e o `is_paused()` é recomendado mantê-lo
-abaixo do teto do plano (~1.000/mês). Quando atinge o limite, o cron pausa até o próximo
-dia.
+inicializado com `COTA_DIARIA` (default 900) e o `is_paused()` mantém a execução abaixo do
+teto. Quando atinge o limite, o cron pausa até o próximo dia.
 
 ### 7. Campos `last_raw` e `last_error`
 

@@ -40,9 +40,10 @@ Tudo vem de variáveis de ambiente via `django-environ` (veja `.env.sample`):
 | `PACOTE_VICIO_API_KEY` | `""` | chave da API PacoteVício (RapidAPI) |
 | `PACOTE_VICIO_BASE_URL` | `https://api.pacotevicio.dev` | base da API |
 | `PACOTE_VICIO_TIMEOUT` | `35` | timeout do HTTP (s) |
-| `COTA_MENSAL` | `900` | teto de requisições/mês do `SyncLog` |
+| `COTA_DIARIA` | `900` | teto de requisições/dia do `SyncLog` |
 | `PACOTE_NOTIFY_EMAIL` | `""` | e-mail para receber avisos (entrega/atraso); vazio = sem envio |
 | `DJANGO_DEFAULT_FROM_EMAIL` | `no-reply@rastreador.local` | remetente dos e-mails |
+| `PUBLIC_BASE_URL` | `""` | base pública (ex.: `https://postman.example.com`) para links nos e-mails; vazio = sem link |
 
 O arquivo `.env` é lido automaticamente pelo `django-environ` na base de settings.
 

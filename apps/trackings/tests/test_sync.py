@@ -5,7 +5,7 @@ from unittest import mock
 from django.core import mail
 from django.test import TestCase, override_settings
 
-from apps.carriers.sync import sync_package
+from apps.carriers.sync import sync_all, sync_package
 from apps.trackings.models import Package
 
 FIXTURES = Path(__file__).parent.parent.parent / "carriers" / "tests" / "fixtures"
@@ -85,3 +85,32 @@ class SyncEmailNotificationTestCase(TestCase):
         with override_settings(PACOTE_NOTIFY_EMAIL=""):
             self.assertTrue(sync_package(p, FakeClient(raw)))
         self.assertEqual(len(mail.outbox), 0)
+
+    def test_email_contains_link(self):
+        p = Package.objects.create(tracking_code="AM101610575BR", carrier="correios")
+        raw = json.loads(FIXTURES.joinpath("correios.json").read_text())
+        with override_settings(PUBLIC_BASE_URL="https://postman.example.com"):
+            self.assertTrue(sync_package(p, FakeClient(raw)))
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("https://postman.example.com/packages/AM101610575BR/", mail.outbox[0].body)
+
+
+class SyncAllTestCase(TestCase):
+    def test_unexpected_error_does_not_stop_batch(self):
+        good = Package.objects.create(tracking_code="X1", carrier="correios")
+        bad = Package.objects.create(tracking_code="X2", carrier="correios")
+
+        def fake_sync(pkg, client):
+            if pkg.pk == bad.pk:
+                raise ValueError("boom")
+            return True
+
+        with mock.patch("apps.carriers.sync.sync_package", side_effect=fake_sync):
+            results = sync_all(FakeClient({}))
+
+        self.assertEqual(results["ok"], 1)
+        self.assertEqual(results["erro"], 1)
+        bad.refresh_from_db()
+        self.assertIn("boom", bad.last_error)
+        good.refresh_from_db()
+        self.assertEqual(good.last_error, "")

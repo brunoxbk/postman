@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load jsonify %}
 {% block title %}{{ package.tracking_code }}{% endblock %}
 {% block content %}
 <a href="{% url 'dashboard' %}">← Voltar</a>
@@ -13,7 +14,7 @@
   {% if package.carrier == "jtexpress" and package.masked_document %}
     <span>Doc: {{ package.masked_document }}</span>
   {% endif %}
-  <p class="meta-status">{{ package.status_label }} — {{ package.location }}</p>
+  <p class="meta-status">{{ package.status_label|default:"—" }} — {{ package.location|default:"—" }}</p>
   <div class="meta-actions">
     <form method="post" action="{% url 'package_sync_now' package.tracking_code %}">
       {% csrf_token %}
@@ -27,13 +28,20 @@
 <h2>Linha do tempo</h2>
 <ul class="timeline timeline-{{ package.state }}">
   {% for e in events %}
+    {% ifchanged e.occurred_at|date:"Ymd" %}
+      <li class="timeline-date">{{ e.occurred_at|date:"l, d/m/Y" }}</li>
+    {% endifchanged %}
     <li>
-      <span class="time">{{ e.occurred_at|date:"d/m/Y H:i" }}</span>
+      <span class="time">{{ e.occurred_at|date:"H:i" }}</span>
       <span class="lab">{{ e.status_label }}</span>
       {% if e.location %}<span class="loc">{{ e.location }}</span>{% endif %}
+      {% if e.raw %}
+        <button type="button" class="toggle-raw">raw</button>
+        <pre class="raw" hidden>{{ e.raw|pretty_json }}</pre>
+      {% endif %}
     </li>
   {% empty %}
-    <li>Sem eventos ainda.</li>
+    <li class="empty-state">Sem eventos ainda.</li>
   {% endfor %}
 </ul>
 {% endblock %}

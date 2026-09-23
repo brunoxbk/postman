@@ -2410,3 +2410,20 @@ Implementadas (commits após `77f84a6`):
   estado, badges por transportadora, mensagens-flash com tipo + fechar, tabela com scroll
   horizontal, responsivo ≤640px), forms/login/confirm-delete em cards, favicon SVG.
 - **Testes:** +18 → **62 testes** verdes; `check --deploy` limpo; `collectstatic` ok.
+
+### Round 2 — correções/ops/funcionalidade/layout ✅
+
+- **Cota**: renomeada para `COTA_DIARIA` (comportamento diário já implementado; docs/env/settings
+  refletem). `SyncLog` e dashboard usam `settings.COTA_DIARIA`.
+- **`.env.sample`** atualizado (`COTA_DIARIA`, `PACOTE_NOTIFY_EMAIL`, `DJANGO_DEFAULT_FROM_EMAIL`, `PUBLIC_BASE_URL`).
+- **API**: `document` agora é aceito como **write-only** (J&T criável/atualizável; não vaza CPF na resposta);
+  `GET /api/v1/health/` e `GET /api/v1/schema/` **públicos**; schema OpenAPI 3.0 estático em `apps/trackings/api_schema.py`.
+- **Cliente**: retry único em `429`/`5xx` (sleep 1s) com `PacoteVicioServerError` claro p/ 429.
+- **sync_all** à prova de falhas: cada pacote em try/except, erro registrado em `last_error` e contabilizado (não derruba o cron); `logging` configurado (`LOGGING` em base.py).
+- **E-mail**: corpo ganha link para o pacote via `PUBLIC_BASE_URL` (+`reverse`).
+- **Dashboard**: coluna **Rótulo**; busca `q` por código **ou** rótulo; ordenação (`created`/
+  `last_event`/`eta`/`carrier`/`state`); células vazias com "—"; empty-state com CTA.
+- **Detail**: timeline agrupada por data (`{% ifchanged %}`), botão **raw** por evento com
+  `pretty_json` (templatetag `apps/trackings/templatetags/jsonify.py`). Dead code `toggle-raw` agora é usado.
+- **Páginas 404/500** customizadas; sessão de 12h (`SESSION_COOKIE_AGE`).
+- **Testes**: +16 → **78 testes** verdes; `check --deploy` limpo.

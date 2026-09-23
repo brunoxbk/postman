@@ -20,7 +20,7 @@ class SyncLog(models.Model):
         today = timezone.localdate()
         obj, _ = cls.objects.get_or_create(
             day=today,
-            defaults={"quota_limit": getattr(settings, "COTA_MENSAL", 900)},
+            defaults={"quota_limit": getattr(settings, "COTA_DIARIA", 900)},
         )
         return obj
 

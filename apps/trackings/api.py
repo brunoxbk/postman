@@ -1,5 +1,6 @@
 from rest_framework import serializers, viewsets
 from rest_framework.decorators import action
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_api_key.permissions import HasAPIKey
@@ -11,7 +12,8 @@ from apps.trackings.models import Package, TrackingEvent
 
 
 class HealthView(APIView):
-    permission_classes = [HasAPIKey]
+    authentication_classes = []
+    permission_classes = [AllowAny]
 
     def get(self, request):
         return Response({"status": "ok"})
@@ -27,14 +29,18 @@ class PackageSerializer(serializers.ModelSerializer):
     events = EventSerializer(many=True, read_only=True)
     carrier_display = serializers.CharField(source="get_carrier_display", read_only=True)
     carrier = serializers.ChoiceField(choices=CARRIER_CHOICES, required=False, allow_blank=True)
+    document = serializers.CharField(
+        max_length=16, required=False, allow_blank=True, write_only=True,
+        style={"input_type": "text"},
+    )
 
     class Meta:
         model = Package
         fields = (
-            "tracking_code", "carrier", "carrier_display", "label", "status_code",
-            "status_label", "location", "last_event_at", "estimated_delivery",
-            "state", "is_active", "is_delayed", "last_synced_at", "last_error",
-            "created_at", "events",
+            "tracking_code", "carrier", "carrier_display", "label", "document",
+            "status_code", "status_label", "location", "last_event_at",
+            "estimated_delivery", "state", "is_active", "is_delayed",
+            "last_synced_at", "last_error", "created_at", "events",
         )
 
     def validate_tracking_code(self, value):

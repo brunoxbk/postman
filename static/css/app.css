@@ -82,8 +82,17 @@ tr.delayed td { background:#fff7ed; }
 .timeline li:first-child::after { content:""; position:absolute; left:-23px; top:9px; width:20px; height:20px; border-radius:50%; border:2px solid #93c5fd; }
 .timeline-delivered li:first-child::after { border-color:#86efac; }
 .timeline-failed li:first-child::after, .timeline-returned li:first-child::after { border-color:#fca5a5; }
+.timeline .timeline-date { font-size:12px; font-weight:700; color:var(--text-soft); text-transform:uppercase; margin-top:12px; }
+.timeline .timeline-date::before { display:none; }
 .time { color:var(--text-soft); font-size:12px; margin-right:8px; }
 .loc { color:var(--text-soft); font-size:12px; }
+.toggle-raw { background:none; border:1px solid var(--border-strong); border-radius:6px; font-size:11px; color:var(--text-soft); cursor:pointer; padding:1px 6px; margin-left:6px; }
+.toggle-raw:hover { border-color:var(--accent); color:var(--accent); }
+.raw { background:#0f172a; color:#a5f3fc; font-size:11px; padding:10px; border-radius:8px; overflow-x:auto; margin:6px 0 0; white-space:pre-wrap; }
+
+/* Empty state */
+.empty-state { text-align:center; padding:32px 16px; margin:8px 0; }
+.empty-icon { font-size:40px; margin-bottom:8px; }
 
 /* Formulário */
 .field { margin-bottom:14px; }

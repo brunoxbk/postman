@@ -2,6 +2,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
+from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -15,6 +16,14 @@ from apps.trackings.models import (
     STATE_DELIVERED,
 )
 
+SORTS = {
+    "created": "-created_at",
+    "last_event": "-last_event_at",
+    "eta": "estimated_delivery",
+    "carrier": "carrier",
+    "state": "state",
+}
+
 
 @login_required
 def dashboard(request):
@@ -22,13 +31,15 @@ def dashboard(request):
     q = request.GET.get("q", "").strip()
     carrier = request.GET.get("carrier", "").strip()
     state = request.GET.get("state", "").strip()
+    sort = request.GET.get("sort", "created").strip()
     if q:
-        qs = qs.filter(tracking_code__icontains=q)
+        qs = qs.filter(Q(tracking_code__icontains=q) | Q(label__icontains=q))
     if carrier:
         qs = qs.filter(carrier=carrier)
     if state:
         qs = qs.filter(state=state)
-    paginator = Paginator(qs.select_related(), 25)
+    order = SORTS.get(sort) or SORTS["created"]
+    paginator = Paginator(qs.select_related().order_by(order, "-created_at"), 25)
     page_obj = paginator.get_page(request.GET.get("page", "1"))
     today = timezone.localdate()
     for p in page_obj:
@@ -51,10 +62,10 @@ def dashboard(request):
         "count_delayed": Package.objects.filter(state=STATE_IN_TRANSIT, estimated_delivery__lt=today).count(),
         "quota": {
             "used": SyncLog.count_today(),
-            "limit": getattr(settings, "COTA_MENSAL", 900),
+            "limit": getattr(settings, "COTA_DIARIA", 900),
         },
         "last_synced_at": last_synced_at,
-        "filter_q": q, "filter_carrier": carrier, "filter_state": state,
+        "filter_q": q, "filter_carrier": carrier, "filter_state": state, "filter_sort": sort,
     }
     return render(request, "dashboard.html", ctx)
 

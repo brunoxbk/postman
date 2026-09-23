@@ -39,3 +39,22 @@ class ClientTestCase(SimpleTestCase):
         with mock.patch("apps.carriers.client.requests.get", return_value=resp):
             with self.assertRaises(PacoteVicioServerError):
                 PacoteVicioClient().fetch("/correios", {"tracking_code": "X"})
+
+    def test_retry_once_on_429_then_success(self):
+        first = mock.Mock(ok=False, status_code=429, text="rate", json=lambda: None)
+        second = mock.Mock(ok=True, status_code=200, json=lambda: {"ok": True})
+        with mock.patch("apps.carriers.client.requests.get", side_effect=[first, second]) as get:
+            import apps.carriers.client as client_mod
+            with mock.patch.object(client_mod.time, "sleep"):
+                data = PacoteVicioClient().fetch("/correios", {"tracking_code": "X"})
+        self.assertEqual(get.call_count, 2)
+        self.assertEqual(data, {"ok": True})
+
+    def test_429_raises_after_retry(self):
+        resp = mock.Mock(ok=False, status_code=429, text="rate")
+        with mock.patch("apps.carriers.client.requests.get", return_value=resp) as get:
+            import apps.carriers.client as client_mod
+            with mock.patch.object(client_mod.time, "sleep"):
+                with self.assertRaises(PacoteVicioServerError):
+                    PacoteVicioClient().fetch("/correios", {"tracking_code": "X"})
+        self.assertEqual(get.call_count, 2)

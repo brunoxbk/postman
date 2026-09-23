@@ -1,7 +1,7 @@
 # API — Consumo pelo Hermes agent
 
 API REST sob `/api/v1/`, protegida por **chave de API** (`djangorestframework-api-key`).
-Todo endpoint exige o cabeçalho:
+Todo endpoint exige o cabeçalho, **exceto** `GET /health/` e `GET /schema/` (públicos):
 
 ```
 Authorization: Api-Key <CHAVE>
@@ -31,15 +31,21 @@ Salve a chave retornada. Ela não pode ser recuperada depois.
 
 ### `GET /api/v1/health/`
 
-Retorna o status do serviço (usado por hooks de deploy e monitors).
+Retorna o status do serviço (usado por hooks de deploy e monitors). **Público — não exige
+chave.**
 
 ```
-curl -H "Authorization: Api-Key $KEY" https://postman.example.com/api/v1/health/
+curl https://postman.example.com/api/v1/health/
 ```
 
 ```json
 { "status": "ok" }
 ```
+
+### `GET /api/v1/schema/`
+
+Schema OpenAPI 3.0 da API, também público. Serve como fonte única para integrar o Hermes
+agent (endpoints, parâmetros, auth).
 
 ### `GET /api/v1/packages/`
 
@@ -103,7 +109,8 @@ Cadastra uma encomenda para rastreamento.
 - `carrier` (opcional — **se omitido, o carrier é detectado automaticamente** pelo código
   salvo; `400` se o código não for reconhecido e nenhum carrier for informado)
 - `label` (opcional)
-- `document` (opcional; **obrigatório para J&T** — CPF do destinatário, só dígitos)
+- `document` (opcional, **write-only** — não retorna na resposta; **obrigatório para J&T** —
+  CPF do destinatário, só dígitos)
 
 ```
 curl -s -X POST https://postman.example.com/api/v1/packages/ \

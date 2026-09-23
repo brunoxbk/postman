@@ -56,9 +56,27 @@ class WebTestCase(TestCase):
     def test_dashboard_shows_quota_and_carrier_filter(self):
         self.login()
         resp = self.client.get("/")
-        self.assertContains(resp, "Cota mensal")
+        self.assertContains(resp, "Cota diária")
         self.assertContains(resp, "900")
         self.assertContains(resp, 'name="carrier"')
+
+    def test_dashboard_search_by_label(self):
+        self.login()
+        p = Package.objects.create(
+            tracking_code="AM101610575BR",
+            carrier="correios",
+            label="Na casa da mãe",
+        )
+        resp = self.client.get("/", {"q": "mãe"})
+        self.assertContains(resp, p.tracking_code)
+
+    def test_dashboard_shows_label_and_sort(self):
+        self.login()
+        Package.objects.create(tracking_code="AM101610575BR", carrier="correios", label="Meu pacote")
+        resp = self.client.get("/")
+        self.assertContains(resp, "Meu pacote")
+        self.assertContains(resp, "Último evento")
+        self.assertContains(resp, 'name="sort"')
 
     def test_dashboard_paginates(self):
         self.login()

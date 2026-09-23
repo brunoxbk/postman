@@ -21,6 +21,16 @@ class ApiTestCase(APITestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.data["status"], "ok")
 
+    def test_health_is_public(self):
+        resp = self.client.get("/api/v1/health/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data["status"], "ok")
+
+    def test_schema_is_public(self):
+        resp = self.client.get("/api/v1/schema/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()["openapi"].split(".")[0], "3")
+
     def test_create_package(self):
         resp = self.client.post(
             "/api/v1/packages/",
@@ -51,6 +61,18 @@ class ApiTestCase(APITestCase):
         )
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST, resp.content)
         self.assertFalse(Package.objects.filter(tracking_code="ZZZ999").exists())
+
+    def test_create_with_document_jt(self):
+        resp = self.client.post(
+            "/api/v1/packages/",
+            {"tracking_code": "888030556767025", "document": "12345678901"},
+            format="json", **self.auth(),
+        )
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED, resp.content)
+        p = Package.objects.get(tracking_code="888030556767025")
+        self.assertEqual(p.carrier, "jtexpress")
+        self.assertEqual(p.document, "12345678901")
+        self.assertNotIn("document", resp.data)
 
     def test_sync_action(self):
         Package.objects.create(tracking_code="AM101610575BR", carrier="correios")

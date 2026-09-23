@@ -13,9 +13,10 @@ env = environ.Env(
     PACOTE_VICIO_API_KEY=(str, ""),
     PACOTE_VICIO_BASE_URL=(str, "https://api.pacotevicio.dev"),
     PACOTE_VICIO_TIMEOUT=(int, 35),
-    COTA_MENSAL=(int, 900),
+    COTA_DIARIA=(int, 900),
     PACOTE_NOTIFY_EMAIL=(str, ""),
     DJANGO_DEFAULT_FROM_EMAIL=(str, "no-reply@rastreador.local"),
+    PUBLIC_BASE_URL=(str, ""),
 )
 environ.Env.read_env(BASE_DIR / ".env")
 
@@ -92,9 +93,10 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 PACOTE_VICIO_API_KEY = env("PACOTE_VICIO_API_KEY")
 PACOTE_VICIO_BASE_URL = env("PACOTE_VICIO_BASE_URL")
 PACOTE_VICIO_TIMEOUT = env("PACOTE_VICIO_TIMEOUT")
-COTA_MENSAL = env("COTA_MENSAL")
+COTA_DIARIA = env("COTA_DIARIA")
 PACOTE_NOTIFY_EMAIL = env("PACOTE_NOTIFY_EMAIL")
 DEFAULT_FROM_EMAIL = env("DJANGO_DEFAULT_FROM_EMAIL")
+PUBLIC_BASE_URL = env("PUBLIC_BASE_URL")
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
@@ -110,3 +112,23 @@ REST_FRAMEWORK = {
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "dashboard"
 LOGOUT_REDIRECT_URL = "login"
+
+SESSION_COOKIE_AGE = 60 * 60 * 12
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = "Lax"
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {"format": "[{asctime}] {levelname} {name} — {message}", "style": "{"},
+    },
+    "handlers": {
+        "console": {"class": "logging.StreamHandler", "formatter": "verbose"},
+    },
+    "root": {"handlers": ["console"], "level": "INFO"},
+    "loggers": {
+        "django.request": {"handlers": ["console"], "level": "WARNING", "propagate": False},
+        "apps": {"handlers": ["console"], "level": "INFO", "propagate": False},
+    },
+}

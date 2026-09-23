@@ -1,6 +1,12 @@
+import logging
+
 from django.conf import settings
 from django.core.mail import send_mail
+from django.urls import reverse
 from django.utils import timezone
+
+
+logger = logging.getLogger(__name__)
 
 from apps.carriers.adapters import get_adapter
 from apps.carriers.client import PacoteVicioClient
@@ -13,10 +19,23 @@ from apps.trackings.models import (
 )
 
 
+def _package_url(package: Package) -> str:
+    base = getattr(settings, "PUBLIC_BASE_URL", "").strip().rstrip("/")
+    if not base:
+        return ""
+    try:
+        return f"{base}{reverse('package_detail', kwargs={'tracking_code': package.tracking_code})}"
+    except Exception:  # noqa: BLE001
+        return ""
+
+
 def _notify(package: Package, subject: str, body: str) -> None:
     to = getattr(settings, "PACOTE_NOTIFY_EMAIL", "").strip()
     if not to:
         return
+    url = _package_url(package)
+    if url:
+        body = f"{body}\nAcompanhe: {url}"
     send_mail(subject, body, settings.DEFAULT_FROM_EMAIL, [to], fail_silently=True)
 
 
@@ -89,7 +108,14 @@ def sync_all(client: PacoteVicioClient | None = None) -> dict:
     client = client or PacoteVicioClient()
     results = {"ok": 0, "erro": 0, "pausado": 0, "sem_documento": 0}
     for package in Package.objects.filter(is_active=True):
-        res = sync_package(package, client)
+        try:
+            res = sync_package(package, client)
+        except Exception as exc:  # noqa: BLE001 - isolar falhas inesperadas do lote
+            logger.exception("Falha inesperada ao sincronizar %s", package.tracking_code)
+            package.last_error = f"Falha inesperada: {exc}"
+            package.save(update_fields=["last_error", "updated_at"])
+            results["erro"] += 1
+            continue
         if res is True:
             results["ok"] += 1
         elif res is False:

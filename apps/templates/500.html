@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Erro interno{% endblock %}
+{% block content %}
+<div class="empty-state">
+  <div class="empty-icon">⚠️</div>
+  <h1>Algo deu errado</h1>
+  <p>Ocorreu um erro inesperado. Tente novamente mais tarde.</p>
+  <a class="btn btn-primary" href="{% url 'dashboard' %}">Voltar ao início</a>
+</div>
+{% endblock %}
