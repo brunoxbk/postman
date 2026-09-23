@@ -1,0 +1,8 @@
+Django~=5.2
+djangorestframework~=3.16
+djangorestframework-api-key~=3.0
+django-environ~=0.12
+whitenoise~=6.9
+requests~=2.32
+psycopg[binary]~=3.2
+gunicorn~=23.0
