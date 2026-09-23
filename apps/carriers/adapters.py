@@ -198,8 +198,8 @@ class JTExpressAdapter(BaseAdapter):
         events.sort(key=lambda e: e.occurred_at or datetime.min, reverse=True)
         return NormalizedPayload(
             tracking_code=raw.get("keyword", ""),
-            status_code=str(details[0].get("code", "")) if details else "",
-            status_label=_clean(details[0].get("status")) if details else "",
+            status_code=events[0].status_key if events else "",
+            status_label=events[0].status_label if events else "",
             location=events[0].location if events else "",
             last_event_at=events[0].occurred_at if events else None,
             estimated_delivery=None,

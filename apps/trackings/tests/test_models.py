@@ -3,9 +3,9 @@ from django.test import TestCase
 
 from apps.carriers.constants import CARRIER_CORREIOS
 from apps.trackings.models import (
+    STATE_IN_TRANSIT,
     Package,
     TrackingEvent,
-    STATE_IN_TRANSIT,
 )
 
 

@@ -1,6 +1,7 @@
+from unittest import mock
+
 from django.contrib.auth.models import User
 from django.test import TestCase
-from unittest import mock
 
 from apps.trackings.models import Package
 
@@ -122,3 +123,43 @@ class WebTestCase(TestCase):
         with mock.patch("apps.trackings.views.sync_package", return_value=None):
             resp = self.client.post("/packages/AM101610575BR/sync/", follow=True)
         self.assertContains(resp, "Cota diária atingida")
+
+    def test_create_normalizes_uppercase(self):
+        self.login()
+        resp = self.client.post("/packages/new/", {
+            "tracking_code": "am101610575br",
+            "label": "Minúsculo",
+        })
+        self.assertEqual(resp.status_code, 302)
+        p = Package.objects.get(tracking_code="AM101610575BR")
+        self.assertEqual(p.carrier, "correios")
+
+    def test_duplicate_case_variant_rejected(self):
+        self.login()
+        Package.objects.create(tracking_code="AM101610575BR", carrier="correios")
+        resp = self.client.post("/packages/new/", {
+            "tracking_code": "am101610575br",
+            "label": "Duplicata",
+        })
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "já existe")
+
+    def test_terminal_hides_sync_and_offers_reopen(self):
+        self.login()
+        p = Package.objects.create(tracking_code="AM101610575BR", carrier="correios")
+        p.mark_terminal("100", "delivered")
+        p.save()
+        resp = self.client.get(f"/packages/{p.tracking_code}/")
+        self.assertNotContains(resp, "Atualizar agora")
+        self.assertContains(resp, "Reabrir rastreio")
+
+    def test_reactivate_package(self):
+        self.login()
+        p = Package.objects.create(tracking_code="AM101610575BR", carrier="correios")
+        p.mark_terminal("100", "delivered")
+        p.save()
+        resp = self.client.post(f"/packages/{p.tracking_code}/reabrir/")
+        self.assertEqual(resp.status_code, 302)
+        p.refresh_from_db()
+        self.assertTrue(p.is_active)
+        self.assertEqual(p.state, "in_transit")

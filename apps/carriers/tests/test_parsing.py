@@ -2,7 +2,7 @@ from datetime import datetime
 
 from django.test import SimpleTestCase
 
-from apps.carriers.parsing import parse_datetime, parse_date, to_aware
+from apps.carriers.parsing import parse_date, parse_datetime, to_aware
 
 
 class ParsingTestCase(SimpleTestCase):

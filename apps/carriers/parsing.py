@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import datetime
 from zoneinfo import ZoneInfo
 
 PT_BR_TZ = ZoneInfo("America/Sao_Paulo")

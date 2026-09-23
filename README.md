@@ -18,6 +18,7 @@ Aplicação Django (painel web + API) que consome a [API PacoteVício](https://r
 make setup            # venv, deps, migrate, createsuperuser
 make dev              # python manage.py runserver
 make test             # suite completa (apps)
+make lint             # ruff (estilo/erros de código)
 make sync             # dispara sincronização manual
 ```
 

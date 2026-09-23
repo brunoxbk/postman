@@ -66,13 +66,14 @@ python manage.py test apps.trackings.tests.test_sync -v 2
 
 ## Comandos úteis
 
-Há um `Makefile` com os atalhos mais usados (`make setup|dev|test|sync|check|migrate`). Direto:
+Há um `Makefile` com os atalhos mais usados (`make setup|dev|test|lint|sync|check|migrate`). Direto:
 
 ```bash
 python manage.py sync_trackings                # sincroniza encomendas ativas manualmente
 python manage.py sync_trackings --quiet        # imprime só os totais (para cron/monitor)
 python manage.py makemigrations --check --dry-run   # valida que não há migrações pendentes
 python manage.py check --deploy                # checagens de segurança (modo prod)
+.venv/bin/ruff check .                         # lint (categorias E4/E7/E9/F/I, ver .ruff.toml)
 python manage.py shell -c "
 from rest_framework_api_key.models import APIKey
 k, key = APIKey.objects.create_key(name='regen')  # gerar chave de API

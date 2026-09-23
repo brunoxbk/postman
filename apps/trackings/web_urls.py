@@ -11,5 +11,6 @@ urlpatterns = [
     path("packages/<str:tracking_code>/", views.package_detail, name="package_detail"),
     path("packages/<str:tracking_code>/edit/", views.package_edit, name="package_edit"),
     path("packages/<str:tracking_code>/sync/", views.package_sync_now, name="package_sync_now"),
+    path("packages/<str:tracking_code>/reabrir/", views.package_reactivate, name="package_reactivate"),
     path("packages/<str:tracking_code>/delete/", views.package_delete, name="package_delete"),
 ]

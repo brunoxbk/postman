@@ -25,7 +25,7 @@ class PackageForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
 
     def clean_tracking_code(self):
-        return self.cleaned_data["tracking_code"].strip()
+        return self.cleaned_data["tracking_code"].strip().upper()
 
     def clean(self):
         cleaned = super().clean()

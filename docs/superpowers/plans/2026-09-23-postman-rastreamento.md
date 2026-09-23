@@ -2438,3 +2438,22 @@ Implementadas (commits após `77f84a6`):
 - **UX**: dashboard com **auto-refresh** leve (fetch do corpo a cada 60s); botões com lock anti-duplo-clique (`js-lock` + "Sincronizando…"); botão **copiar código** + contador de eventos no detail.
 - **DX**: `Makefile` (`setup/dev/test/sync/check/migrate`), **quickstart no README**, `.editorconfig`.
 - **Testes**: +9 → **80 testes** verdes; prod smoke ok (health/schema/404/estáticos).
+
+### Round 4 — correções de caixa/UX, ops (CI/lint) e API ✅
+
+- **Bug de ambigüidade de caixa (500)**: `tracking_code` agora é **normalizado para MAIÚSCULAS**
+  no form e na API (com `exclude(self)` no update); migração de dados `0004` consolida códigos
+  existentes (junta eventos com re-fingerprint, mantém o registro mais antigo). Elimina
+  `MultipleObjectsReturned` em lookups `iexact`.
+- **UX**: "Atualizar agora" **escondido** para encomendas inativas/encerradas (economiza cota);
+  nova ação **"Reabrir rastreio"** (`POST /packages/{code}/reabrir/`) reativa sem gastar cota
+  (testável para re-checar entrega mal detectada).
+- **JT Express**: `status_code`/`status_label` passam a derivar do **evento mais recente**
+  (`events[0]`, consistente com location).
+- **CI**: `.github/workflows/ci.yml` — `test apps`, `makemigrations --check`, `check`,
+  `check --deploy` em todo push/PR.
+- **Lint**: ruff configurado (`E4/E7/E9/F/I`), `requirements-dev.txt`, alvo `make lint`;
+  imports reordenados em `sync.py`/views/tests (`I001`), F401 removido.
+- **API**: paginação documentada no schema (`limit`/`offset`); `DELETE` + paginação
+  ganharam testes (já existentes em `ModelViewSet`/settings).
+- **Testes**: +8 → **88 testes** verdes; lint limpo.

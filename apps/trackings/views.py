@@ -11,9 +11,9 @@ from apps.carriers.sync import sync_package
 from apps.core.models import SyncLog
 from apps.trackings.forms import PackageForm
 from apps.trackings.models import (
-    Package,
-    STATE_IN_TRANSIT,
     STATE_DELIVERED,
+    STATE_IN_TRANSIT,
+    Package,
 )
 
 SORTS = {
@@ -109,6 +109,22 @@ def package_sync_now(request, tracking_code):
         messages.error(request, package.last_error or "Erro ao sincronizar.")
     else:
         messages.success(request, "Sincronização executada.")
+    return redirect("package_detail", tracking_code=package.tracking_code)
+
+
+@login_required
+@require_POST
+def package_reactivate(request, tracking_code):
+    package = get_object_or_404(Package, tracking_code__iexact=tracking_code)
+    if package.is_active:
+        messages.info(request, "A encomenda já está ativa.")
+    else:
+        package.is_active = True
+        package.state = STATE_IN_TRANSIT
+        package.is_delayed = False
+        package.last_error = ""
+        package.save(update_fields=["is_active", "state", "is_delayed", "last_error"])
+        messages.success(request, "Rastreio reaberto — as próximas sincronizações voltarão a consultar.")
     return redirect("package_detail", tracking_code=package.tracking_code)
 
 

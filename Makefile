@@ -1,7 +1,7 @@
 PY := .venv/bin/python
 MANAGE := $(PY) manage.py
 
-.PHONY: setup test migrate sync check deploy-check shell dev requirements
+.PHONY: setup test migrate sync check deploy-check lint shell dev requirements
 
 setup: requirements
 	$(MAKE) migrate
@@ -9,10 +9,13 @@ setup: requirements
 
 requirements:
 	python3 -m venv .venv
-	$(PY) -m pip install -r requirements.txt
+	$(PY) -m pip install -r requirements-dev.txt
 
 test:
 	$(MANAGE) test apps
+
+lint:
+	$(PY) -m ruff check .
 
 migrate:
 	$(MANAGE) makemigrations

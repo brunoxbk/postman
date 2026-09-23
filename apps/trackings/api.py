@@ -44,8 +44,11 @@ class PackageSerializer(serializers.ModelSerializer):
         )
 
     def validate_tracking_code(self, value):
-        value = value.strip()
-        if Package.objects.filter(tracking_code__iexact=value).exists():
+        value = value.strip().upper()
+        qs = Package.objects.filter(tracking_code__iexact=value)
+        if self.instance is not None:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
             raise serializers.ValidationError("Código já cadastrado.")
         return value
 

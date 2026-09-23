@@ -4,7 +4,6 @@ from django.core.management.base import BaseCommand, CommandError
 
 from apps.carriers.sync import sync_all
 
-
 logger = logging.getLogger(__name__)
 
 

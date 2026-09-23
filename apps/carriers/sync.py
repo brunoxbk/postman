@@ -5,18 +5,17 @@ from django.core.mail import send_mail
 from django.urls import reverse
 from django.utils import timezone
 
-
-logger = logging.getLogger(__name__)
-
 from apps.carriers.adapters import get_adapter
 from apps.carriers.client import PacoteVicioClient
 from apps.carriers.exceptions import PacoteVicioClientError, PacoteVicioServerError
 from apps.core.models import SyncLog
 from apps.trackings.models import (
+    STATE_DELIVERED,
     Package,
     TrackingEvent,
-    STATE_DELIVERED,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _package_url(package: Package) -> str:

@@ -106,5 +106,37 @@ class ApiTestCase(APITestCase):
         self.assertNotIn("raw", event)
         self.assertNotIn("recipient_name", resp.content.decode())
 
+    def test_create_normalizes_uppercase(self):
+        resp = self.client.post(
+            "/api/v1/packages/",
+            {"tracking_code": "am101610575br"},
+            format="json", **self.auth(),
+        )
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED, resp.content)
+        self.assertEqual(Package.objects.get(tracking_code="AM101610575BR").tracking_code, "AM101610575BR")
+
+    def test_duplicate_case_variant_rejected(self):
+        Package.objects.create(tracking_code="AM101610575BR", carrier="correios")
+        resp = self.client.post(
+            "/api/v1/packages/",
+            {"tracking_code": "am101610575br"},
+            format="json", **self.auth(),
+        )
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST, resp.content)
+
+    def test_delete_package(self):
+        Package.objects.create(tracking_code="AM101610575BR", carrier="correios")
+        resp = self.client.delete("/api/v1/packages/AM101610575BR/", **self.auth())
+        self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Package.objects.filter(tracking_code="AM101610575BR").exists())
+
+    def test_list_is_paginated(self):
+        Package.objects.create(tracking_code="AM101610575BR", carrier="correios")
+        resp = self.client.get("/api/v1/packages/", **self.auth())
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("count", resp.data)
+        self.assertIn("results", resp.data)
+        self.assertEqual(resp.data["count"], 1)
+
     def test_detect_carrier_via_api(self):
         self.assertEqual(detect_carrier("AJ123456789"), "anjun")

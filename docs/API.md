@@ -56,6 +56,9 @@ curl -H "Authorization: Api-Key $KEY" \
   "https://postman.example.com/api/v1/packages/?state=in_transit&carrier=anjun"
 ```
 
+> A listagem é **paginada**: a resposta é `{ "count", "next", "previous", "results" }`.
+> Use `?limit=` e `?offset=` para navegar (padrão `limit=50`).
+
 ```json
 {
   "count": 2,
@@ -126,9 +129,13 @@ Resposta `201` com o objeto criado (mesmo shape do GET). Código duplicado → `
 Detecção automática: omita o `carrier` — `{"tracking_code":"AM101610575BR"}` cria com
 `carrier="correios"`.
 
+> O `tracking_code` é **normalizado para MAIÚSCULAS** e a duplicidade é verificada
+> sem diferenciar maiúsculas/minúsculas (ex.: `am101610575br` e `AM101610575BR`
+> são o mesmo código).
+
 ### `POST /api/v1/packages/{tracking_code}/sync/`
 
-Executa um sync imediato da encomenda (consome 1 requisição da cota mensal). Retorna o
+Executa um sync imediato da encomenda (consome 1 requisição da cota diária). Retorna o
 status do sync e o pacote atualizado.
 
 ```
@@ -144,7 +151,7 @@ curl -s -X POST https://postman.example.com/api/v1/packages/AM101610575BR/sync/ 
 ```
 
 Valores de `sync_status`: `true` (ok), `false` (erro controlado, exemplo: J&T sem CPF),
-`null` (cota mensal atingida — sincronização pausada).
+`null` (cota diária atingida — sincronização pausada).
 
 ### Outros métodos
 

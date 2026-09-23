@@ -21,8 +21,27 @@ SCHEMA = {
                     {"name": "q", "in": "query", "schema": {"type": "string"}, "description": "Código (icontains)"},
                     {"name": "carrier", "in": "query", "schema": {"type": "string"}},
                     {"name": "state", "in": "query", "schema": {"type": "string"}},
+                    {"name": "limit", "in": "query", "schema": {"type": "integer"}, "description": "Itens por página (padrão 50)"},
+                    {"name": "offset", "in": "query", "schema": {"type": "integer"}, "description": "Deslocamento (0-based)"},
                 ],
-                "responses": {"200": {"description": "Lista paginada"}},
+                "responses": {
+                    "200": {
+                        "description": "Lista paginada",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "count": {"type": "integer"},
+                                        "next": {"type": "string", "nullable": True},
+                                        "previous": {"type": "string", "nullable": True},
+                                        "results": {"type": "array", "items": {"type": "object"}},
+                                    },
+                                }
+                            }
+                        },
+                    }
+                },
             },
             "post": {
                 "summary": "Cadastra encomenda (carrier auto-detectado se omitido)",
