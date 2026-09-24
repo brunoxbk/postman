@@ -2,7 +2,9 @@ from unittest import mock
 
 from django.contrib.auth.models import User
 from django.test import TestCase
+from django.utils import timezone
 
+from apps.core.models import SyncLog
 from apps.trackings.models import Package
 
 
@@ -150,6 +152,54 @@ class WebTestCase(TestCase):
         self.assertContains(resp, "data-auto-refresh")
         self.assertContains(resp, 'data-interval="60000"')
         self.assertContains(resp, 'data-refresh-url')
+
+    def test_skip_link_and_main_content_anchor(self):
+        self.login()
+        resp = self.client.get("/")
+        self.assertContains(resp, 'class="skip-link"')
+        self.assertContains(resp, 'href="#content"')
+        self.assertContains(resp, 'id="content"')
+
+    def test_filters_have_sr_only_labels(self):
+        self.login()
+        resp = self.client.get("/")
+        for name in ("filter-q", "filter-state", "filter-carrier", "filter-sort"):
+            self.assertContains(resp, f'id="{name}"')
+            self.assertContains(resp, f'for="{name}"')
+            self.assertContains(resp, "sr-only")
+
+    def test_quota_shows_remaining(self):
+        self.login()
+        resp = self.client.get("/")
+        self.assertContains(resp, "restam 1000")
+
+    def test_quota_shows_warn_level_when_close_to_limit(self):
+        self.login()
+        SyncLog.objects.create(
+            month=timezone.localdate().replace(day=1),
+            requests=750,
+            quota_limit=1000,
+        )
+        resp = self.client.get("/")
+        self.assertContains(resp, "quota-fill--warn")
+        self.assertContains(resp, "restam 250")
+
+    def test_dashboard_shows_active_filter_chip_only_when_filtered(self):
+        self.login()
+        resp = self.client.get("/")
+        self.assertNotContains(resp, "Filtro ativo")
+        resp = self.client.get("/", {"q": "abc"})
+        self.assertContains(resp, "Filtro ativo")
+
+    def test_dashboard_toolbar_and_live_region(self):
+        self.login()
+        Package.objects.create(tracking_code="AM101610575BR", carrier="correios")
+        resp = self.client.get("/")
+        self.assertContains(resp, 'class="toolbar"')
+        self.assertContains(resp, 'class="inline-form js-lock"')
+        self.assertContains(resp, "aria-live=")
+        self.assertContains(resp, 'data-label="Transportadora"')
+        self.assertContains(resp, 'data-label="Último evento"')
 
     def test_dashboard_partial_blocks(self):
         self.login()

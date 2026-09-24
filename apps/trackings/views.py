@@ -59,15 +59,22 @@ def _dashboard_context(request):
         .values_list("last_synced_at", flat=True)
         .first()
     )
+    quota_used = SyncLog.count_period()
+    quota_limit = getattr(settings, "COTA_MENSAL", 1000)
+    quota_pct = (quota_used * 100 // quota_limit) if quota_limit else 0
+    quota_level = "err" if quota_pct >= 90 else "warn" if quota_pct >= 70 else "ok"
     return {
         "page_obj": page_obj,
         "packages": page_obj.object_list,
         **counts,
         "quota": {
-            "used": SyncLog.count_period(),
-            "limit": getattr(settings, "COTA_MENSAL", 1000),
+            "used": quota_used,
+            "limit": quota_limit,
+            "remaining": max(quota_limit - quota_used, 0),
+            "level": quota_level,
         },
         "last_synced_at": last_synced_at,
+        "filter_active": bool(q or carrier or "state" in request.GET),
         "filter_q": q, "filter_carrier": carrier, "filter_state": state, "filter_sort": sort,
     }
 

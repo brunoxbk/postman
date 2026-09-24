@@ -1,50 +1,66 @@
-<div class="cards">
-  <div class="card"><span class="num">{{ count_in_transit }}</span><span>Em trânsito</span></div>
-  <div class="card"><span class="num">{{ count_delivered }}</span><span>Entregues</span></div>
-  <div class="card"><span class="num">{{ count_delayed }}</span><span>Atrasadas</span></div>
+<div class="toolbar">
+  <form method="post" action="{% url 'sync_all_now' %}" class="inline-form js-lock">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-secondary">↻ Atualizar todos</button>
+  </form>
+  <a class="btn btn-primary" href="{% url 'package_new' %}">+ Nova encomenda</a>
 </div>
 
-<div class="quota">
-  <div class="quota-text">Cota mensal: {{ quota.used }} / {{ quota.limit }} requisições
-    {% if last_synced_at %}· último sync: {{ last_synced_at|date:"d/m/Y H:i" }}{% endif %}
+<div class="region" role="region" aria-label="Resumo" aria-live="polite">
+  <div class="cards">
+    <div class="card"><span class="num">{{ count_in_transit }}</span><span>Em trânsito</span></div>
+    <div class="card"><span class="num">{{ count_delivered }}</span><span>Entregues</span></div>
+    <div class="card"><span class="num">{{ count_delayed }}</span><span>Atrasadas</span></div>
   </div>
-  <div class="quota-bar"><span class="quota-fill" style="width:{% widthratio quota.used quota.limit 100 %}%"></span></div>
+
+  <div class="quota">
+    <div class="quota-text">Cota mensal: {{ quota.used }} / {{ quota.limit }} requisições — restam {{ quota.remaining }}
+      {% if quota.level == "err" %}<span class="quota-note quota-note-err">Limite atingido</span>
+      {% elif quota.level == "warn" %}<span class="quota-note quota-note-warn">Quase no limite</span>{% endif %}
+      {% if last_synced_at %}· último sync: {{ last_synced_at|date:"d/m/Y H:i" }}{% endif %}
+    </div>
+    <div class="quota-bar"><span class="quota-fill quota-fill--{{ quota.level }}" style="width:{% widthratio quota.used quota.limit 100 %}%"></span></div>
+  </div>
 </div>
 
-<form method="get" class="filters">
-  <input name="q" value="{{ filter_q }}" placeholder="Buscar código ou rótulo">
-  <select name="state">
-    <option value="">Estado</option>
-    <option value="in_transit" {% if filter_state == "in_transit" %}selected{% endif %}>Em trânsito</option>
-    <option value="delivered" {% if filter_state == "delivered" %}selected{% endif %}>Entregue</option>
-    <option value="failed" {% if filter_state == "failed" %}selected{% endif %}>Falha</option>
-    <option value="returned" {% if filter_state == "returned" %}selected{% endif %}>Devolvida</option>
-  </select>
-  <select name="carrier">
-    <option value="">Transportadora</option>
-    <option value="correios" {% if filter_carrier == "correios" %}selected{% endif %}>Correios</option>
-    <option value="aliexpress" {% if filter_carrier == "aliexpress" %}selected{% endif %}>AliExpress</option>
-    <option value="shopee" {% if filter_carrier == "shopee" %}selected{% endif %}>Shopee Xpress</option>
-    <option value="anjun" {% if filter_carrier == "anjun" %}selected{% endif %}>Anjun Express</option>
-    <option value="jtexpress" {% if filter_carrier == "jtexpress" %}selected{% endif %}>J&T Express</option>
-    <option value="totalexpress" {% if filter_carrier == "totalexpress" %}selected{% endif %}>Total Express</option>
-  </select>
-  <select name="sort">
-    <option value="created" {% if filter_sort == "created" %}selected{% endif %}>Mais recentes</option>
-    <option value="last_event" {% if filter_sort == "last_event" %}selected{% endif %}>Último evento</option>
-    <option value="eta" {% if filter_sort == "eta" %}selected{% endif %}>Previsão</option>
-    <option value="carrier" {% if filter_sort == "carrier" %}selected{% endif %}>Transportadora</option>
-    <option value="state" {% if filter_sort == "state" %}selected{% endif %}>Estado</option>
-  </select>
-  <button type="submit" class="btn btn-primary">Filtrar</button>
-  <a class="btn btn-secondary" href="{% url 'dashboard' %}">Limpar</a>
-</form>
-
-<form method="post" action="{% url 'sync_all_now' %}" class="inline-form">
-  {% csrf_token %}
-  <button type="submit" class="btn btn-secondary">↻ Atualizar todos</button>
-</form>
-<a class="btn btn-primary" href="{% url 'package_new' %}">+ Nova</a>
+<div class="filters-card">
+  <div class="filters-head">
+    <span class="filters-title">Filtros</span>
+    {% if filter_active %}<span class="chip chip-active">● Filtro ativo</span>{% endif %}
+  </div>
+  <form method="get" class="filters">
+    <label class="sr-only" for="filter-q">Buscar</label>
+    <input id="filter-q" name="q" value="{{ filter_q }}" placeholder="Buscar código ou rótulo">
+    <label class="sr-only" for="filter-state">Filtrar por estado</label>
+    <select id="filter-state" name="state">
+      <option value="">Estado</option>
+      <option value="in_transit" {% if filter_state == "in_transit" %}selected{% endif %}>Em trânsito</option>
+      <option value="delivered" {% if filter_state == "delivered" %}selected{% endif %}>Entregue</option>
+      <option value="failed" {% if filter_state == "failed" %}selected{% endif %}>Falha</option>
+      <option value="returned" {% if filter_state == "returned" %}selected{% endif %}>Devolvida</option>
+    </select>
+    <label class="sr-only" for="filter-carrier">Filtrar por transportadora</label>
+    <select id="filter-carrier" name="carrier">
+      <option value="">Transportadora</option>
+      <option value="correios" {% if filter_carrier == "correios" %}selected{% endif %}>Correios</option>
+      <option value="aliexpress" {% if filter_carrier == "aliexpress" %}selected{% endif %}>AliExpress</option>
+      <option value="shopee" {% if filter_carrier == "shopee" %}selected{% endif %}>Shopee Xpress</option>
+      <option value="anjun" {% if filter_carrier == "anjun" %}selected{% endif %}>Anjun Express</option>
+      <option value="jtexpress" {% if filter_carrier == "jtexpress" %}selected{% endif %}>J&T Express</option>
+      <option value="totalexpress" {% if filter_carrier == "totalexpress" %}selected{% endif %}>Total Express</option>
+    </select>
+    <label class="sr-only" for="filter-sort">Ordenar por</label>
+    <select id="filter-sort" name="sort">
+      <option value="created" {% if filter_sort == "created" %}selected{% endif %}>Mais recentes</option>
+      <option value="last_event" {% if filter_sort == "last_event" %}selected{% endif %}>Último evento</option>
+      <option value="eta" {% if filter_sort == "eta" %}selected{% endif %}>Previsão</option>
+      <option value="carrier" {% if filter_sort == "carrier" %}selected{% endif %}>Transportadora</option>
+      <option value="state" {% if filter_sort == "state" %}selected{% endif %}>Estado</option>
+    </select>
+    <button type="submit" class="btn btn-primary">Filtrar</button>
+    <a class="btn btn-secondary" href="{% url 'dashboard' %}">Limpar</a>
+  </form>
+</div>
 
 <div class="table-scroll">
 <table>
@@ -52,22 +68,22 @@
   <tbody>
   {% for p in packages %}
     <tr class="{% if p.is_overdue %}delayed{% endif %}">
-      <td><a class="code-link" href="{% url 'package_detail' p.tracking_code %}">{{ p.tracking_code }}</a></td>
-      <td>{{ p.label|default:"—" }}</td>
-      <td><span class="badge badge-{{ p.carrier }}">{{ p.get_carrier_display }}</span></td>
-      <td><span class="state state-{{ p.state }}">{{ p.get_state_display }}</span>
+      <td data-label="Código"><a class="code-link" href="{% url 'package_detail' p.tracking_code %}">{{ p.tracking_code }}</a></td>
+      <td data-label="Rótulo">{{ p.label|default:"—" }}</td>
+      <td data-label="Transportadora"><span class="badge badge-{{ p.carrier }}">{{ p.get_carrier_display }}</span></td>
+      <td data-label="Status"><span class="state state-{{ p.state }}">{{ p.get_state_display }}</span>
         {% if p.is_overdue %}<span class="state state-delayed">⚠ Atrasada</span>{% endif %}
       </td>
-      <td>{{ p.location|default:"—" }}</td>
-      <td>{{ p.last_event_at|date:"d/m/Y H:i"|default:"—" }}</td>
-      <td><a class="btn btn-sm" href="{% url 'package_detail' p.tracking_code %}">ver</a></td>
+      <td data-label="Local">{{ p.location|default:"—" }}</td>
+      <td data-label="Último evento">{{ p.last_event_at|date:"d/m/Y H:i"|default:"—" }}</td>
+      <td data-label=""><a class="btn btn-sm" href="{% url 'package_detail' p.tracking_code %}">ver</a></td>
     </tr>
   {% empty %}
     <tr>
       <td colspan="7">
         <div class="empty-state">
           <div class="empty-icon">📭</div>
-          <p>Nenhuma encomenda{% if filter_q or filter_state or filter_carrier %} com os filtros atuais{% endif %}.</p>
+          <p>Nenhuma encomenda{% if filter_active %} com os filtros atuais{% endif %}.</p>
           <a class="btn btn-primary" href="{% url 'package_new' %}">Cadastrar primeira encomenda</a>
         </div>
       </td>
@@ -78,13 +94,17 @@
 </div>
 
 {% if page_obj.paginator.num_pages > 1 %}
-<nav class="pagination">
+<nav class="pagination" aria-label="Paginação">
   {% if page_obj.has_previous %}
     <a href="?page={{ page_obj.previous_page_number }}&q={{ filter_q }}&state={{ filter_state }}&carrier={{ filter_carrier }}&sort={{ filter_sort }}">← Anterior</a>
+  {% else %}
+    <span class="page-disabled">← Anterior</span>
   {% endif %}
   <span>Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
   {% if page_obj.has_next %}
     <a href="?page={{ page_obj.next_page_number }}&q={{ filter_q }}&state={{ filter_state }}&carrier={{ filter_carrier }}&sort={{ filter_sort }}">Próxima →</a>
+  {% else %}
+    <span class="page-disabled">Próxima →</span>
   {% endif %}
 </nav>
 {% endif %}

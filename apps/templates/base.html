@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
 </head>
 <body{% block body_attrs %}{% endblock %}>
+<a class="skip-link" href="#content">Pular para o conteúdo</a>
 <header class="topbar">
   <div class="container">
     <a class="brand" href="{% url 'dashboard' %}">📦 Rastreador</a>
@@ -20,11 +21,11 @@
     </nav>
   </div>
 </header>
-<main class="container">
+<main class="container" id="content">
   {% if messages %}
-    <div class="messages">
+    <div class="messages" aria-live="polite">
       {% for message in messages %}
-        <div class="message message-{{ message.tags }}">
+        <div class="message message-{{ message.tags }}"{% if "error" in message.tags or "warning" in message.tags %} role="alert"{% else %} role="status"{% endif %}>
           {{ message }}
           <button type="button" class="message-close" aria-label="Fechar">×</button>
         </div>
