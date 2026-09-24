@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.db import models
+from django.db.models import F
 from django.utils import timezone
 
 
@@ -27,8 +28,8 @@ class SyncLog(models.Model):
     @classmethod
     def increment(cls) -> int:
         obj = cls._row()
-        obj.requests += 1
-        obj.save()
+        cls.objects.filter(id=obj.id).update(requests=F("requests") + 1)
+        obj.refresh_from_db(fields=["requests"])
         return obj.requests
 
     @classmethod

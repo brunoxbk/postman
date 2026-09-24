@@ -24,9 +24,19 @@ class AdaptersTestCase(SimpleTestCase):
         n = get_adapter("correios").normalize(raw)
         self.assertEqual(n.tracking_code, "AM101610575BR")
         self.assertTrue(n.is_terminal)
+        self.assertEqual(n.terminal_state, "delivered")
         self.assertEqual(n.status_label, "ENTREGUE")
         self.assertEqual(len(n.events), 2)
         self.assertEqual(n.events[0].status_key, "BDE")
+
+    def test_correios_non_terminal_has_no_terminal_state(self):
+        raw = load("correios.json")
+        raw["situacao"] = "C"
+        for ev in raw["eventos"]:
+            ev["finalizador"] = "N"
+        n = get_adapter("correios").normalize(raw)
+        self.assertFalse(n.is_terminal)
+        self.assertIsNone(n.terminal_state)
 
     def test_aliexpress_normalize(self):
         n = get_adapter("aliexpress").normalize(load("aliexpress.json"))
@@ -37,22 +47,26 @@ class AdaptersTestCase(SimpleTestCase):
         n = get_adapter("shopee").normalize(load("shopee.json"))
         self.assertEqual(n.status_code, "Delivered")
         self.assertTrue(n.is_terminal)
+        self.assertEqual(n.terminal_state, "delivered")
         self.assertEqual(len(n.events), 8)
 
     def test_anjun_normalize(self):
         n = get_adapter("anjun").normalize(load("anjun.json"))
         self.assertEqual(n.tracking_code, "AJ250101341570001")
         self.assertTrue(n.is_terminal)
+        self.assertEqual(n.terminal_state, "delivered")
 
     def test_jtexpress_normalize(self):
         n = get_adapter("jtexpress").normalize(load("jtexpress.json"))
         self.assertEqual(n.status_code, "100")
         self.assertTrue(n.is_terminal)
+        self.assertEqual(n.terminal_state, "delivered")
 
     def test_totalexpress_normalize(self):
         n = get_adapter("totalexpress").normalize(load("totalexpress.json"))
         self.assertEqual(n.tracking_code, "AMZB901884819tx")
         self.assertTrue(n.is_terminal)
+        self.assertEqual(n.terminal_state, "delivered")
         self.assertEqual(len(n.events), 7)
         self.assertEqual(n.estimated_delivery.isoformat(), "2026-03-23")
 

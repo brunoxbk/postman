@@ -17,6 +17,7 @@ env = environ.Env(
     PACOTE_NOTIFY_EMAIL=(str, ""),
     DJANGO_DEFAULT_FROM_EMAIL=(str, "no-reply@rastreador.local"),
     PUBLIC_BASE_URL=(str, ""),
+    SYNC_WORKERS=(int, 4),
 )
 environ.Env.read_env(BASE_DIR / ".env")
 
@@ -72,6 +73,8 @@ ASGI_APPLICATION = "config.asgi.application"
 
 DATABASES = {"default": env.db(default="sqlite:///db.sqlite3")}
 
+CONN_MAX_AGE = 60
+
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
@@ -97,6 +100,7 @@ COTA_DIARIA = env("COTA_DIARIA")
 PACOTE_NOTIFY_EMAIL = env("PACOTE_NOTIFY_EMAIL")
 DEFAULT_FROM_EMAIL = env("DJANGO_DEFAULT_FROM_EMAIL")
 PUBLIC_BASE_URL = env("PUBLIC_BASE_URL")
+SYNC_WORKERS = env("SYNC_WORKERS")
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [

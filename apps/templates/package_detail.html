@@ -10,7 +10,7 @@
   {% if package.estimated_delivery %}
     <span>Previsão: {{ package.estimated_delivery|date:"d/m/Y" }}</span>
   {% endif %}
-  {% if package.is_delayed %}<span class="state state-delayed">⚠ Atrasada</span>{% endif %}
+  {% if package.is_overdue %}<span class="state state-delayed">⚠ Atrasada</span>{% endif %}
   {% if package.carrier == "jtexpress" and package.masked_document %}
     <span>Doc: {{ package.masked_document }}</span>
   {% endif %}

@@ -4,6 +4,7 @@ from django.contrib.auth.models import User
 from django.test import TestCase
 from django.urls import reverse
 
+from apps.carriers.sync import SyncResult
 from apps.trackings.admin import TrackingEventAdmin
 from apps.trackings.models import Package
 
@@ -18,7 +19,7 @@ class AdminActionTestCase(TestCase):
         self.client.force_login(self.admin)
 
     def test_resync_packages_action(self):
-        with mock.patch("apps.carriers.sync.sync_package", return_value=True):
+        with mock.patch("apps.carriers.sync.sync_package", return_value=SyncResult.OK):
             resp = self.client.post(
                 reverse("admin:trackings_package_changelist"),
                 {"action": "resync_packages", "_selected_action": [self.package.pk]},
@@ -26,6 +27,15 @@ class AdminActionTestCase(TestCase):
             )
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, "encomenda(s) sincronizadas")
+
+    def test_resync_packages_counts_errors(self):
+        with mock.patch("apps.carriers.sync.sync_package", return_value=SyncResult.ERROR):
+            resp = self.client.post(
+                reverse("admin:trackings_package_changelist"),
+                {"action": "resync_packages", "_selected_action": [self.package.pk]},
+                follow=True,
+            )
+        self.assertContains(resp, "0 encomenda(s) sincronizadas, 1 com erro")
 
     def test_event_admin_has_date_hierarchy(self):
         resp = self.client.get(reverse("admin:trackings_trackingevent_changelist"))

@@ -1,8 +1,11 @@
+from datetime import date
+
 from django.db import IntegrityError
 from django.test import TestCase
 
 from apps.carriers.constants import CARRIER_CORREIOS
 from apps.trackings.models import (
+    STATE_DELIVERED,
     STATE_IN_TRANSIT,
     Package,
     TrackingEvent,
@@ -36,6 +39,31 @@ class PackageModelTestCase(TestCase):
     def test_masked_document(self):
         p = Package(tracking_code="X1", carrier=CARRIER_CORREIOS, document="12345678901")
         self.assertEqual(p.masked_document, "***.***.***-01")
+
+    def test_is_overdue_in_transit_past_eta(self):
+        p = Package(
+            tracking_code="X1", carrier=CARRIER_CORREIOS,
+            state=STATE_IN_TRANSIT, estimated_delivery=date(2020, 1, 1),
+        )
+        self.assertTrue(p.is_overdue)
+
+    def test_is_overdue_false_when_future_eta(self):
+        p = Package(
+            tracking_code="X1", carrier=CARRIER_CORREIOS,
+            state=STATE_IN_TRANSIT, estimated_delivery=date(2099, 1, 1),
+        )
+        self.assertFalse(p.is_overdue)
+
+    def test_is_overdue_false_when_no_eta(self):
+        p = Package(tracking_code="X1", carrier=CARRIER_CORREIOS, state=STATE_IN_TRANSIT)
+        self.assertFalse(p.is_overdue)
+
+    def test_is_overdue_false_when_delivered(self):
+        p = Package(
+            tracking_code="X1", carrier=CARRIER_CORREIOS,
+            state=STATE_DELIVERED, estimated_delivery=date(2020, 1, 1),
+        )
+        self.assertFalse(p.is_overdue)
 
 
 class TrackingEventFingerprintTestCase(TestCase):

@@ -59,9 +59,14 @@ class NormalizedPayload:
     last_event_at: datetime | None
     estimated_delivery: date | None
     is_terminal: bool          # True = encomenda em estado final
+    terminal_state: str | None # estado terminal canônico ("delivered") quando is_terminal
     events: list[EventData]    # EventData(occurred_at, status_key, status_label, location, raw)
     raw: dict                  # resposta original, para debug
 ```
+
+`terminal_state` permite que cada adapter informe *qual* estado final a encomenda
+atingiu (ex.: "delivered") de forma independente do nome cru do evento. Se nulo, o
+`_apply_events` assume o default `delivered`.
 
 ### 2. Detecção automática de transportadora
 
@@ -78,7 +83,9 @@ aplica regex em ordem fixa:
 | Total Express | `^[A-Z]{3,5}\d{6,}(?:[tx]{1,2})?$` |
 
 Na web o usuário pode sobrescrever a transportadora manualmente; nos forms a detecção
-valida o código antes de salvar.
+valida o código antes de salvar. Tanto `forms.py` quanto a `api.py` usam o helper
+`resolve_carrier(code, preferred)` — se `preferred` (carrier informado) existir, ele
+vence; senão cai na detecção por regex.
 
 ### 3. Parsing de datas
 
@@ -91,19 +98,35 @@ aware no fuso `America/Sao_Paulo`.
 O management command `sync_trackings` roda via cron e executa `sync_all()`, que itera
 apenas as encomendas `is_active=True`. Para cada uma, `sync_package()`:
 
-1. Confere a **cota** (`SyncLog.is_paused()`) e devolve `None` se estourou.
-2. Monta params via adapter (`document` do CPF se necessário — sem ele, J&T é ignorada).
+1. Confere a **cota** (`SyncLog.is_paused()`) e devolve `SyncResult.PAUSED` se estourou.
+2. Monta params via adapter (`document` do CPF se necessário — sem ele, J&T devolve
+   `SyncResult.NO_DOCUMENT`).
 3. `client.fetch(adapter.host_path, params)`; registra `SyncLog.increment()` após sucesso.
 4. `adapter.normalize(raw)` → `_apply_events()`:
    - cria eventos com **dedupe** via `make_fingerprint` (SHA1 de
-     `package_id;occurred_at;status_key;status_label`).
+     `package_id;occurred_at;status_key;status_label`) usando `bulk_create(ignore_conflicts=True)`.
    - atualiza `status_code/label`, `location`, `last_event_at`, `estimated_delivery`,
      `last_raw`, `last_error`.
-   - se `is_terminal` → `mark_terminal()` (desativa a encomenda; para de consultar).
+   - se `is_terminal` → `terminal_state or "delivered"`, `mark_terminal()` (desativa a
+     encomenda e limpa `last_raw` para não guardar payload pesado inútil).
    - se em trânsito e `estimated_delivery < hoje` → `is_delayed=True`.
-5. Erros: 4xx vira `last_error` e não retenta; 5xx/timeout idem (retentativa no próximo cron).
+5. Erros: **4xx permanente** (`400/404/410/422` — `PERMANENT_CLIENT_ERRORS`) desativa a
+   encomenda (`is_active=False`) e retorna `SyncResult.ERROR`; `401/403` e 5xx/timeout
+   apenas gravam `last_error` (retentativa no próximo cron).
 
-`sync_package` retorna: `True` (ok) / `False` (erro ou sem documento) / `None` (pausado por cota).
+Resultado tipado (`SyncResult`, enum em `sync.py`):
+
+| Valor | Significado |
+|---|---|
+| `OK` | sincronizado com sucesso |
+| `ERROR` | falha (5xx/timeout ou 4xx permanente) |
+| `PAUSED` | cota diária atingida |
+| `NO_DOCUMENT` | sem CPF (J&T) — nada foi consultado |
+
+**Paralelismo:** `sync_all()` consome as encomendas num `ThreadPoolExecutor` com
+`SYNC_WORKERS` workers (default 4). A paralelização é desativada automaticamente sob
+`SQLITE` (lock de escrita entre threads) e quando `SYNC_WORKERS=1`. O `client` reutiliza
+uma única `requests.Session` (connection pooling + keep-alive) para todas as chamadas.
 
 ### 5. Estado final encerra a encomenda
 
@@ -120,7 +143,18 @@ teto. Quando atinge o limite, o cron pausa até o próximo dia.
 ### 7. Campos `last_raw` e `last_error`
 
 `Package.last_raw` guarda o último payload bruto (utilitário de debug) e `last_error` a
-última falha — ambos visíveis na UI (badge de aviso) e no admin.
+última falha — ambos visíveis na UI (badge de aviso) e no admin. Por serem pesados, o
+`last_raw` é excluído das consultas de listagem (`.defer("last_raw")`) no dashboard web,
+no admin via ORM e na API.
+
+### 8. Sync manual (web) em background
+
+O botão "Atualizar agora" do painel web (`package_sync_now`) não bloqueia a requisição:
+ele despacha `spawn_background_sync()` — uma `threading.Thread` daemon que re-busca a
+encomenda, executa `sync_package()` e fecha a conexão do Django no fim (`connection.close()`),
+evitando vazamento de conexão entre threads. O resultado aparece na próxima atualização
+automática do dashboard (auto-refresh via partial). A API DRF (`POST .../sync/`) permanece
+**síncrona** por contrato de consumo (`sync_status` na resposta).
 
 ## Modelo de dados
 
@@ -138,7 +172,8 @@ teto. Quando atinge o limite, o cron pausa até o próximo dia.
 | `estimated_delivery` | Date | previsão de entrega |
 | `state` | Char choices | in_transit / delivered / failed / returned / inactive |
 | `is_active` | Bool | participa do cron? |
-| `is_delayed` | Bool | detectado atraso |
+| `is_delayed` | Bool | flag persistido do atraso (usado por notificações) |
+| `is_overdue` | property | cálculo em tempo real: `in_transit` E `estimated_delivery` passou — fonte única para a UI marcar "Atrasada" |
 | `last_synced_at` | DateTime | última sincronização |
 | `last_error` / `last_raw` | Text / JSON | diagnóstico |
 | `created_at` / `updated_at` | DateTime | auditoria |

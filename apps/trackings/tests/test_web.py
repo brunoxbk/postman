@@ -96,16 +96,39 @@ class WebTestCase(TestCase):
     def test_sync_now_post(self):
         self.login()
         Package.objects.create(tracking_code="AM101610575BR", carrier="correios")
-        with mock.patch("apps.trackings.views.sync_package", return_value=True):
+        with mock.patch("apps.trackings.views.spawn_background_sync") as spawn:
             resp = self.client.post("/packages/AM101610575BR/sync/")
         self.assertEqual(resp.status_code, 302)
         self.assertEqual(resp.url, "/packages/AM101610575BR/")
+        spawn.assert_called_once()
 
     def test_dashboard_auto_refreshes(self):
         self.login()
         resp = self.client.get("/")
         self.assertContains(resp, "data-auto-refresh")
         self.assertContains(resp, 'data-interval="60000"')
+        self.assertContains(resp, 'data-refresh-url')
+
+    def test_dashboard_partial_blocks(self):
+        self.login()
+        Package.objects.create(tracking_code="AM101610575BR", carrier="correios")
+        resp = self.client.get("/partials/dashboard/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, 'class="cards"')
+        self.assertContains(resp, 'class="quota"')
+        self.assertContains(resp, 'class="table-scroll"')
+        self.assertNotContains(resp, "<html")
+        self.assertContains(resp, "AM101610575BR")
+
+    def test_sync_now_quota_paused_message(self):
+        self.login()
+        Package.objects.create(tracking_code="AM101610575BR", carrier="correios")
+        with mock.patch("apps.trackings.views.SyncLog.is_paused", return_value=True) as paused:
+            with mock.patch("apps.trackings.views.spawn_background_sync") as spawn:
+                resp = self.client.post("/packages/AM101610575BR/sync/", follow=True)
+        self.assertContains(resp, "Cota diária atingida")
+        paused.assert_called()
+        spawn.assert_not_called()
 
     def test_detail_has_lock_copy_count(self):
         self.login()
@@ -116,13 +139,6 @@ class WebTestCase(TestCase):
         self.assertContains(resp, 'class="js-lock"')
         self.assertContains(resp, 'id="copy-code"')
         self.assertContains(resp, "(1)")
-
-    def test_sync_now_quota_paused_message(self):
-        self.login()
-        Package.objects.create(tracking_code="AM101610575BR", carrier="correios")
-        with mock.patch("apps.trackings.views.sync_package", return_value=None):
-            resp = self.client.post("/packages/AM101610575BR/sync/", follow=True)
-        self.assertContains(resp, "Cota diária atingida")
 
     def test_create_normalizes_uppercase(self):
         self.login()

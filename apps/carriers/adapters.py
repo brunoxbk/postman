@@ -69,6 +69,7 @@ class CorreiosAdapter(BaseAdapter):
             last_event_at=events[0].occurred_at if events else None,
             estimated_delivery=parse_date(_clean(raw.get("dtPrevista"))),
             is_terminal=is_terminal,
+            terminal_state="delivered" if is_terminal else None,
             events=events,
             raw=raw,
         )
@@ -100,6 +101,7 @@ class AliExpressAdapter(BaseAdapter):
         mms = eta.get("deliveryMaxTime")
         if mms:
             est = date.fromtimestamp(int(mms) / 1000)
+        is_terminal = "deliver" in (status + " " + status_desc).lower()
         events.sort(key=lambda e: e.occurred_at or datetime.min, reverse=True)
         return NormalizedPayload(
             tracking_code=raw.get("mailNo", ""),
@@ -108,7 +110,8 @@ class AliExpressAdapter(BaseAdapter):
             location="",
             last_event_at=events[0].occurred_at if events else None,
             estimated_delivery=est,
-            is_terminal="deliver" in (status + " " + status_desc).lower(),
+            is_terminal=is_terminal,
+            terminal_state="delivered" if is_terminal else None,
             events=events,
             raw=raw,
         )
@@ -132,6 +135,7 @@ class ShopeeAdapter(BaseAdapter):
                 raw=ev,
             ))
         status = _clean(raw.get("current_status"))
+        is_terminal = "delivered" in status.lower()
         events.sort(key=lambda e: e.occurred_at or datetime.min, reverse=True)
         return NormalizedPayload(
             tracking_code=raw.get("sls_tracking_number", ""),
@@ -140,7 +144,8 @@ class ShopeeAdapter(BaseAdapter):
             location=events[0].location if events else "",
             last_event_at=events[0].occurred_at if events else None,
             estimated_delivery=None,
-            is_terminal="delivered" in status.lower(),
+            is_terminal=is_terminal,
+            terminal_state="delivered" if is_terminal else None,
             events=events,
             raw=raw,
         )
@@ -163,6 +168,7 @@ class AnjunAdapter(BaseAdapter):
                 raw=ev,
             ))
         status = _clean(raw.get("lastTrackStatus"))
+        is_terminal = "signed" in status.lower()
         events.sort(key=lambda e: e.occurred_at or datetime.min, reverse=True)
         return NormalizedPayload(
             tracking_code=raw.get("trackNo", ""),
@@ -171,7 +177,8 @@ class AnjunAdapter(BaseAdapter):
             location=events[0].location if events else "",
             last_event_at=events[0].occurred_at if events else None,
             estimated_delivery=None,
-            is_terminal="signed" in status.lower(),
+            is_terminal=is_terminal,
+            terminal_state="delivered" if is_terminal else None,
             events=events,
             raw=raw,
         )
@@ -204,6 +211,7 @@ class JTExpressAdapter(BaseAdapter):
             last_event_at=events[0].occurred_at if events else None,
             estimated_delivery=None,
             is_terminal=is_terminal,
+            terminal_state="delivered" if is_terminal else None,
             events=events,
             raw=raw,
         )
@@ -243,6 +251,7 @@ class TotalExpressAdapter(BaseAdapter):
             last_event_at=events[0].occurred_at if events else None,
             estimated_delivery=parse_date(_clean(encomenda.get("previsaoEntrega"))),
             is_terminal=is_terminal,
+            terminal_state="delivered" if is_terminal else None,
             events=events,
             raw=raw,
         )
@@ -274,3 +283,10 @@ def detect_carrier(code: str) -> str | None:
         if pat.match(code):
             return nid
     return None
+
+
+def resolve_carrier(code: str, preferred: str = "") -> str | None:
+    """Decide o carrier: usa o 'preferred' se informado, senão detecta pelo código."""
+    if preferred:
+        return preferred
+    return detect_carrier(code)

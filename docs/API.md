@@ -97,6 +97,10 @@ curl -H "Authorization: Api-Key $KEY" \
 > **Privacidade:** os eventos retornados **não incluem o campo `raw`** (payloads das
 > transportadoras podem conter nome do destinatário, telefone e endereço). O payload
 > bruto fica disponível apenas no admin e no painel web (debug).
+>
+> **Desempenho:** na listagem, `events` traz apenas um **preview dos 50 eventos mais
+> recentes** (entre todas as encomendas da página); no detalhe (`/packages/{código}/`)
+> os eventos vêm completos. O campo pesado `last_raw` não é selecionado na listagem.
 
 ### `GET /api/v1/packages/{tracking_code}/`
 
@@ -150,8 +154,12 @@ curl -s -X POST https://postman.example.com/api/v1/packages/AM101610575BR/sync/ 
 }
 ```
 
-Valores de `sync_status`: `true` (ok), `false` (erro controlado, exemplo: J&T sem CPF),
-`null` (cota diária atingida — sincronização pausada).
+Valores de `sync_status`: `true` (ok), `false` (erro controlado, exemplo: J&T sem CPF ou
+erro permanente 4xx), `null` (cota diária atingida — sincronização pausada).
+
+> **Erro permanente (4xx):** códigos `400`, `404`, `410` e `422` fazem a encomenda ser
+> **desativada** (`is_active=false`) — ela sai da fila do cron e só volta via "Reabrir
+> rastreio" (admin ou painel web). Códigos como `401`/`403` não desativam.
 
 ### Outros métodos
 

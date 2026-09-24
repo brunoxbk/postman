@@ -13,6 +13,10 @@ dokku postgres:create postman-db
 dokku postgres:link postman-db postman
 ```
 
+> O `sync_trackings` roda **paralelo** (threads, `SYNC_WORKERS`, default 4) e por isso
+> **exige Postgres** — é o banco de prod, então nenhuma ação adicional é necessária.
+> (O fallback sequencial existe só para SQLite/dev e testes.)
+
 ## 2. Configurar variáveis de ambiente
 
 ```bash
@@ -25,6 +29,7 @@ dokku config:set postman \
   PACOTE_VICIO_BASE_URL=https://api.pacotevicio.dev \
   PACOTE_VICIO_TIMEOUT=35 \
   COTA_DIARIA=900 \
+  SYNC_WORKERS=4 \
   PACOTE_NOTIFY_EMAIL="voce@example.com" \
   DJANGO_DEFAULT_FROM_EMAIL="postman@example.com" \
   PUBLIC_BASE_URL=https://postman.example.com

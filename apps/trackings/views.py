@@ -1,8 +1,12 @@
+import logging
+import threading
+
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.db.models import Q
+from django.db import connection
+from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -16,6 +20,8 @@ from apps.trackings.models import (
     Package,
 )
 
+logger = logging.getLogger(__name__)
+
 SORTS = {
     "created": "-created_at",
     "last_event": "-last_event_at",
@@ -25,9 +31,8 @@ SORTS = {
 }
 
 
-@login_required
-def dashboard(request):
-    qs = Package.objects.all()
+def _dashboard_context(request):
+    qs = Package.objects.all().defer("last_raw")
     q = request.GET.get("q", "").strip()
     carrier = request.GET.get("carrier", "").strip()
     state = request.GET.get("state", "").strip()
@@ -39,27 +44,24 @@ def dashboard(request):
     if state:
         qs = qs.filter(state=state)
     order = SORTS.get(sort) or SORTS["created"]
-    paginator = Paginator(qs.select_related().order_by(order, "-created_at"), 25)
+    paginator = Paginator(qs.order_by(order, "-created_at"), 25)
     page_obj = paginator.get_page(request.GET.get("page", "1"))
     today = timezone.localdate()
-    for p in page_obj:
-        p.is_delayed = (
-            p.state == STATE_IN_TRANSIT
-            and p.estimated_delivery is not None
-            and p.estimated_delivery < today
-        )
+    counts = Package.objects.aggregate(
+        count_in_transit=Count("id", filter=Q(state=STATE_IN_TRANSIT)),
+        count_delivered=Count("id", filter=Q(state=STATE_DELIVERED)),
+        count_delayed=Count("id", filter=Q(state=STATE_IN_TRANSIT, estimated_delivery__lt=today)),
+    )
     last_synced_at = (
         Package.objects.filter(last_synced_at__isnull=False)
         .order_by("-last_synced_at")
         .values_list("last_synced_at", flat=True)
         .first()
     )
-    ctx = {
+    return {
         "page_obj": page_obj,
         "packages": page_obj.object_list,
-        "count_in_transit": Package.objects.filter(state=STATE_IN_TRANSIT).count(),
-        "count_delivered": Package.objects.filter(state=STATE_DELIVERED).count(),
-        "count_delayed": Package.objects.filter(state=STATE_IN_TRANSIT, estimated_delivery__lt=today).count(),
+        **counts,
         "quota": {
             "used": SyncLog.count_today(),
             "limit": getattr(settings, "COTA_DIARIA", 900),
@@ -67,7 +69,16 @@ def dashboard(request):
         "last_synced_at": last_synced_at,
         "filter_q": q, "filter_carrier": carrier, "filter_state": state, "filter_sort": sort,
     }
-    return render(request, "dashboard.html", ctx)
+
+
+@login_required
+def dashboard(request):
+    return render(request, "dashboard.html", _dashboard_context(request))
+
+
+@login_required
+def dashboard_blocks(request):
+    return render(request, "dashboard_blocks.html", _dashboard_context(request))
 
 
 @login_required
@@ -98,17 +109,39 @@ def package_detail(request, tracking_code):
     return render(request, "package_detail.html", {"package": package, "events": events})
 
 
+def _run_sync_in_background(package_id: int) -> None:
+    try:
+        package = Package.objects.get(pk=package_id)
+        sync_package(package)
+    except Package.DoesNotExist:
+        logger.warning("Encomenda %s não existe mais — sync ignorado.", package_id)
+    finally:
+        connection.close()
+
+
+def spawn_background_sync(package: Package) -> threading.Thread:
+    thread = threading.Thread(
+        target=_run_sync_in_background,
+        args=(package.pk,),
+        daemon=True,
+        name=f"sync-{package.pk}",
+    )
+    thread.start()
+    return thread
+
+
 @login_required
 @require_POST
 def package_sync_now(request, tracking_code):
     package = get_object_or_404(Package, tracking_code__iexact=tracking_code)
-    result = sync_package(package)
-    if result is None:
+    if SyncLog.is_paused():
         messages.warning(request, "Cota diária atingida — sincronização pausada.")
-    elif result is False:
-        messages.error(request, package.last_error or "Erro ao sincronizar.")
     else:
-        messages.success(request, "Sincronização executada.")
+        spawn_background_sync(package)
+        messages.success(
+            request,
+            "Sincronização iniciada em segundo plano — os dados aparecem na próxima atualização.",
+        )
     return redirect("package_detail", tracking_code=package.tracking_code)
 
 

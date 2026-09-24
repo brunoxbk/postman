@@ -1,3 +1,4 @@
+from django.db.models import Prefetch
 from rest_framework import serializers, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny
@@ -5,10 +6,17 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_api_key.permissions import HasAPIKey
 
-from apps.carriers.adapters import detect_carrier
+from apps.carriers.adapters import resolve_carrier
 from apps.carriers.constants import CARRIER_CHOICES
-from apps.carriers.sync import sync_package
+from apps.carriers.sync import SyncResult, sync_package
 from apps.trackings.models import Package, TrackingEvent
+
+SYNC_STATUS = {
+    SyncResult.OK: True,
+    SyncResult.ERROR: False,
+    SyncResult.NO_DOCUMENT: False,
+    SyncResult.PAUSED: None,
+}
 
 
 class HealthView(APIView):
@@ -54,7 +62,7 @@ class PackageSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         code = validated_data.get("tracking_code", "")
-        carrier = validated_data.get("carrier") or detect_carrier(code) or ""
+        carrier = resolve_carrier(code, validated_data.get("carrier") or "")
         if not carrier:
             raise serializers.ValidationError(
                 {"carrier": "Não foi possível identificar a transportadora pelo código."}
@@ -69,7 +77,7 @@ class PackageViewSet(viewsets.ModelViewSet):
     lookup_field = "tracking_code"
 
     def get_queryset(self):
-        qs = Package.objects.all()
+        qs = Package.objects.all().defer("last_raw")
         code = self.request.query_params.get("q")
         carrier = self.request.query_params.get("carrier")
         state = self.request.query_params.get("state")
@@ -79,7 +87,21 @@ class PackageViewSet(viewsets.ModelViewSet):
             qs = qs.filter(carrier=carrier)
         if state:
             qs = qs.filter(state=state)
-        return qs.select_related().prefetch_related("events")
+        return qs
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        recent_ids = TrackingEvent.objects.order_by("-occurred_at", "-id").values_list("pk", flat=True)[:50]
+        page = self.paginate_queryset(
+            queryset.prefetch_related(
+                Prefetch("events", queryset=TrackingEvent.objects.filter(pk__in=recent_ids))
+            )
+        )
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
 
     @action(detail=True, methods=["POST"])
     def sync(self, request, tracking_code=None):
@@ -87,4 +109,4 @@ class PackageViewSet(viewsets.ModelViewSet):
         result = sync_package(package)
         package.refresh_from_db()
         serializer = self.get_serializer(package)
-        return Response({"sync_status": result, "package": serializer.data})
+        return Response({"sync_status": SYNC_STATUS[result], "package": serializer.data})

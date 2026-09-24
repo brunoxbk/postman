@@ -40,6 +40,7 @@ if (copyBtn) {
 
 if (document.body.hasAttribute("data-auto-refresh")) {
   const interval = Number(document.body.dataset.interval) || 60000;
+  const url = document.body.dataset.refreshUrl || window.location.href;
 
   const replaceFrom = (selector, doc) => {
     const current = document.querySelector(selector);
@@ -50,7 +51,7 @@ if (document.body.hasAttribute("data-auto-refresh")) {
   async function refreshDashboard() {
     if (document.hidden) return;
     try {
-      const res = await fetch(window.location.href, {
+      const res = await fetch(url, {
         headers: { "X-Requested-With": "XMLHttpRequest" },
       });
       if (!res.ok) return;
@@ -58,6 +59,7 @@ if (document.body.hasAttribute("data-auto-refresh")) {
       replaceFrom(".cards", doc);
       replaceFrom(".quota", doc);
       replaceFrom(".table-scroll", doc);
+      replaceFrom(".pagination", doc);
     } catch {
       /* falha silenciosa — tenta de novo no próximo ciclo */
     }

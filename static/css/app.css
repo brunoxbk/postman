@@ -94,7 +94,7 @@ tr.delayed td { background:#fff7ed; }
 .empty-state { text-align:center; padding:32px 16px; margin:8px 0; }
 .empty-icon { font-size:40px; margin-bottom:8px; }
 
-/* Detalhe */
+/* Utilidades */
 .count { color:var(--text-soft); font-size:14px; font-weight:400; }
 #copy-code.copied { background:var(--ok); border-color:var(--ok); color:#fff; }
 button.btn:disabled { opacity:.6; cursor:not-allowed; }

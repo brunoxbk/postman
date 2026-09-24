@@ -5,6 +5,7 @@ from rest_framework.test import APITestCase
 from rest_framework_api_key.models import APIKey
 
 from apps.carriers.adapters import detect_carrier
+from apps.carriers.sync import SyncResult
 from apps.trackings.models import Package
 
 
@@ -76,14 +77,24 @@ class ApiTestCase(APITestCase):
 
     def test_sync_action(self):
         Package.objects.create(tracking_code="AM101610575BR", carrier="correios")
-        with mock.patch("apps.trackings.api.sync_package", return_value=True):
+        with mock.patch("apps.trackings.api.sync_package", return_value=SyncResult.OK):
             resp = self.client.post(
                 "/api/v1/packages/AM101610575BR/sync/",
                 format="json", **self.auth(),
             )
         self.assertEqual(resp.status_code, status.HTTP_200_OK, resp.content)
-        self.assertTrue(resp.data["sync_status"])
+        self.assertIs(resp.data["sync_status"], True)
         self.assertEqual(resp.data["package"]["tracking_code"], "AM101610575BR")
+
+    def test_sync_action_paused_returns_null(self):
+        Package.objects.create(tracking_code="AM101610575BR", carrier="correios")
+        with mock.patch("apps.trackings.api.sync_package", return_value=SyncResult.PAUSED):
+            resp = self.client.post(
+                "/api/v1/packages/AM101610575BR/sync/",
+                format="json", **self.auth(),
+            )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK, resp.content)
+        self.assertIsNone(resp.data["sync_status"])
 
     def test_list_and_retrieve(self):
         Package.objects.create(tracking_code="AM101610575BR", carrier="correios")

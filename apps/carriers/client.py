@@ -11,9 +11,10 @@ class PacoteVicioClient:
         self.base_url = auth_base or settings.PACOTE_VICIO_BASE_URL
         self.api_key = getattr(settings, "PACOTE_VICIO_API_KEY", "")
         self.timeout = timeout or settings.PACOTE_VICIO_TIMEOUT
+        self.session = requests.Session()
 
     def _get(self, url: str, params: dict) -> "requests.Response":
-        return requests.get(
+        return self.session.get(
             url,
             params=params,
             timeout=self.timeout,

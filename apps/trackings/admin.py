@@ -1,19 +1,18 @@
 from django.contrib import admin
 
+from apps.carriers.sync import SyncResult, sync_package
 from apps.trackings.models import Package, TrackingEvent
 
 
 @admin.action(description="Re-sincronizar encomendas selecionadas")
 def resync_packages(modeladmin, request, queryset):
-    from apps.carriers.sync import sync_package
-
     ok = erro = 0
     for package in queryset:
         try:
             result = sync_package(package)
         except Exception:  # noqa: BLE001
-            result = False
-        if result is True:
+            result = SyncResult.ERROR
+        if result is SyncResult.OK:
             ok += 1
         else:
             erro += 1
@@ -23,7 +22,7 @@ def resync_packages(modeladmin, request, queryset):
 @admin.register(Package)
 class PackageAdmin(admin.ModelAdmin):
     list_display = (
-        "tracking_code", "label", "state", "is_active", "is_delayed",
+        "tracking_code", "label", "state", "is_active", "is_overdue",
         "last_event_at", "last_synced_at",
     )
     list_filter = ("state", "carrier", "is_active", "is_delayed")

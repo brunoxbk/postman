@@ -22,3 +22,4 @@ class NormalizedPayload:
     is_terminal: bool
     events: list[EventData]
     raw: dict
+    terminal_state: str | None = None

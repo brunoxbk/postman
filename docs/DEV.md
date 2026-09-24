@@ -41,6 +41,7 @@ Tudo vem de variáveis de ambiente via `django-environ` (veja `.env.sample`):
 | `PACOTE_VICIO_BASE_URL` | `https://api.pacotevicio.dev` | base da API |
 | `PACOTE_VICIO_TIMEOUT` | `35` | timeout do HTTP (s) |
 | `COTA_DIARIA` | `900` | teto de requisições/dia do `SyncLog` |
+| `SYNC_WORKERS` | `4` | threads paralelas do `sync_all` (1 = sequencial; sempre sequencial em SQLite) |
 | `PACOTE_NOTIFY_EMAIL` | `""` | e-mail para receber avisos (entrega/atraso); vazio = sem envio |
 | `DJANGO_DEFAULT_FROM_EMAIL` | `no-reply@rastreador.local` | remetente dos e-mails |
 | `PUBLIC_BASE_URL` | `""` | base pública (ex.: `https://postman.example.com`) para links nos e-mails; vazio = sem link |
@@ -63,6 +64,11 @@ Rodar apenas um grupo:
 python manage.py test apps.carriers -v 2
 python manage.py test apps.trackings.tests.test_sync -v 2
 ```
+
+> **SQLite nos testes:** o test runner usa SQLite em memória, que não suporta escritas
+> concorrentes entre threads. Os testes de concorrência (`SyncAllParallelTestCase`,
+> `SyncLogConcurrentTestCase`) são pulados sob SQLite (`skipUnless(connection.vendor ==
+> "postgresql")`) — rode-os contra um Postgres local para validar o caminho paralelo.
 
 ## Comandos úteis
 
@@ -115,5 +121,5 @@ print(key)
   (web), `api.py` + `api_urls.py` (API DRF), admin, management command
   `sync_trackings`
 
-Sem linter configurado neste projeto; o código segue o padrão do Python (PEP 8) e o
-estilo dos arquivos vizinhos.
+O lint roda via `ruff` (`.ruff.toml`, categorias E4/E7/E9/F/I) — `make lint`.
+Fora isso, o código segue o padrão do Python (PEP 8) e o estilo dos arquivos vizinhos.

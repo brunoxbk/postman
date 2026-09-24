@@ -1,6 +1,7 @@
 import hashlib
 
 from django.db import models
+from django.utils import timezone
 
 from apps.carriers.constants import CARRIER_CHOICES
 
@@ -66,6 +67,14 @@ class Package(models.Model):
     @property
     def display_code(self) -> str:
         return self.label or self.tracking_code
+
+    @property
+    def is_overdue(self) -> bool:
+        return (
+            self.state == STATE_IN_TRANSIT
+            and self.estimated_delivery is not None
+            and self.estimated_delivery < timezone.localdate()
+        )
 
     @property
     def masked_document(self) -> str:
