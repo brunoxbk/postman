@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_api_key.permissions import HasAPIKey
 
-from apps.carriers.adapters import resolve_carrier
+from apps.carriers.adapters import detect_carrier, is_plausible_code
 from apps.carriers.constants import CARRIER_CHOICES
 from apps.carriers.sync import SyncResult, sync_package
 from apps.trackings.models import Package, TrackingEvent
@@ -62,12 +62,16 @@ class PackageSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         code = validated_data.get("tracking_code", "")
-        carrier = resolve_carrier(code, validated_data.get("carrier") or "")
-        if not carrier:
-            raise serializers.ValidationError(
-                {"carrier": "Não foi possível identificar a transportadora pelo código."}
-            )
-        validated_data["carrier"] = carrier
+        carrier = validated_data.get("carrier") or ""
+        detected = detect_carrier(code)
+        if not detected:
+            if not carrier or not is_plausible_code(code):
+                raise serializers.ValidationError(
+                    {"tracking_code": "Não foi possível identificar a transportadora pelo código."}
+                )
+            validated_data["carrier"] = carrier
+            return super().create(validated_data)
+        validated_data["carrier"] = carrier or detected
         return super().create(validated_data)
 
 

@@ -3,7 +3,7 @@ from pathlib import Path
 
 from django.test import SimpleTestCase
 
-from apps.carriers.adapters import ADAPTERS, detect_carrier, get_adapter
+from apps.carriers.adapters import ADAPTERS, detect_carrier, get_adapter, is_plausible_code
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -82,6 +82,12 @@ class AdaptersTestCase(SimpleTestCase):
         ]
         for code, expected in cases:
             self.assertEqual(detect_carrier(code), expected, code)
+
+    def test_is_plausible_code(self):
+        for code in ("ZZZ999", "888002557196685", "BR2561249217932", "AMZB901884819tx"):
+            self.assertTrue(is_plausible_code(code), code)
+        for code in ("multimetro", "x", "", "12345", "A B C123", "código!!"):
+            self.assertFalse(is_plausible_code(code), code)
 
 
 class JTAdapterTestCase(SimpleTestCase):

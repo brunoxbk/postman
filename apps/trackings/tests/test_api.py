@@ -63,6 +63,15 @@ class ApiTestCase(APITestCase):
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST, resp.content)
         self.assertFalse(Package.objects.filter(tracking_code="ZZZ999").exists())
 
+    def test_create_rejects_label_as_code_even_with_carrier(self):
+        resp = self.client.post(
+            "/api/v1/packages/",
+            {"tracking_code": "multimetro", "carrier": "jtexpress", "document": "04978794331"},
+            format="json", **self.auth(),
+        )
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST, resp.content)
+        self.assertFalse(Package.objects.filter(tracking_code="MULTIMETRO").exists())
+
     def test_create_with_document_jt(self):
         resp = self.client.post(
             "/api/v1/packages/",

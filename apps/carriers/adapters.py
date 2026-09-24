@@ -285,6 +285,13 @@ def detect_carrier(code: str) -> str | None:
     return None
 
 
+def is_plausible_code(value: str) -> bool:
+    """Heurística mínima para distinguir um código de rastreio de texto digitado por engano
+    (ex.: rótulo no campo de código). Exige dígitos, sem espaços e comprimento razoável."""
+    value = (value or "").strip()
+    return len(value) >= 6 and value.isalnum() and any(ch.isdigit() for ch in value)
+
+
 def resolve_carrier(code: str, preferred: str = "") -> str | None:
     """Decide o carrier: usa o 'preferred' se informado, senão detecta pelo código."""
     if preferred:

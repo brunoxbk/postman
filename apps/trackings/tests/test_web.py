@@ -150,6 +150,18 @@ class WebTestCase(TestCase):
         p = Package.objects.get(tracking_code="AM101610575BR")
         self.assertEqual(p.carrier, "correios")
 
+    def test_create_rejects_label_typed_in_code_field(self):
+        self.login()
+        resp = self.client.post("/packages/new/", {
+            "tracking_code": "multimetro",
+            "label": "888002557196685",
+            "carrier": "jtexpress",
+            "document": "04978794331",
+        })
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Não foi possível identificar a transportadora pelo código.")
+        self.assertFalse(Package.objects.filter(tracking_code="MULTIMETRO").exists())
+
     def test_duplicate_case_variant_rejected(self):
         self.login()
         Package.objects.create(tracking_code="AM101610575BR", carrier="correios")

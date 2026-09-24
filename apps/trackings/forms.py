@@ -1,6 +1,6 @@
 from django import forms
 
-from apps.carriers.adapters import resolve_carrier
+from apps.carriers.adapters import is_plausible_code, resolve_carrier
 from apps.carriers.constants import CARRIER_CHOICES
 from apps.trackings.models import Package
 
@@ -32,13 +32,17 @@ class PackageForm(forms.ModelForm):
         code = cleaned.get("tracking_code")
         carrier = cleaned.get("carrier")
         detected = resolve_carrier(code) if code else None
-        if not carrier:
-            if not detected:
+        if self._original_code and code == self._original_code:
+            return cleaned
+        if not detected:
+            if not carrier or not is_plausible_code(code):
                 raise forms.ValidationError(
                     {"tracking_code": "Não foi possível identificar a transportadora pelo código."}
                 )
+            return cleaned
+        if not carrier:
             cleaned["carrier"] = detected
-        elif self._original_code and code != self._original_code and detected:
+        elif self._original_code and code != self._original_code:
             cleaned["carrier"] = detected
         return cleaned
 

@@ -85,7 +85,9 @@ aplica regex em ordem fixa:
 Na web o usuário pode sobrescrever a transportadora manualmente; nos forms a detecção
 valida o código antes de salvar. Tanto `forms.py` quanto a `api.py` usam o helper
 `resolve_carrier(code, preferred)` — se `preferred` (carrier informado) existir, ele
-vence; senão cai na detecção por regex.
+vence; senão cai na detecção por regex. Um código que não bate em **nenhum** padrão só é
+aceito com carrier manual se passar em `is_plausible_code` (dígitos, sem espaços, ≥6
+caracteres) — evita rótulo digitado por engano no campo de código.
 
 ### 3. Parsing de datas
 
