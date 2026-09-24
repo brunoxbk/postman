@@ -5,7 +5,7 @@
 </div>
 
 <div class="quota">
-  <div class="quota-text">Cota diária: {{ quota.used }} / {{ quota.limit }} requisições
+  <div class="quota-text">Cota mensal: {{ quota.used }} / {{ quota.limit }} requisições
     {% if last_synced_at %}· último sync: {{ last_synced_at|date:"d/m/Y H:i" }}{% endif %}
   </div>
   <div class="quota-bar"><span class="quota-fill" style="width:{% widthratio quota.used quota.limit 100 %}%"></span></div>
@@ -38,8 +38,13 @@
   </select>
   <button type="submit" class="btn btn-primary">Filtrar</button>
   <a class="btn btn-secondary" href="{% url 'dashboard' %}">Limpar</a>
-  <a class="btn btn-primary" href="{% url 'package_new' %}">+ Nova</a>
 </form>
+
+<form method="post" action="{% url 'sync_all_now' %}" class="inline-form">
+  {% csrf_token %}
+  <button type="submit" class="btn btn-secondary">↻ Atualizar todos</button>
+</form>
+<a class="btn btn-primary" href="{% url 'package_new' %}">+ Nova</a>
 
 <div class="table-scroll">
 <table>

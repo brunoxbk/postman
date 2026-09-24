@@ -6,6 +6,7 @@ from apps.trackings import views
 urlpatterns = [
     path("", views.dashboard, name="dashboard"),
     path("partials/dashboard/", views.dashboard_blocks, name="dashboard_blocks"),
+    path("sync/all/", views.sync_all_now, name="sync_all_now"),
     path("login/", auth_views.LoginView.as_view(template_name="registration/login.html"), name="login"),
     path("logout/", auth_views.LogoutView.as_view(), name="logout"),
     path("packages/new/", views.package_new, name="package_new"),

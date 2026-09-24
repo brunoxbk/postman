@@ -37,10 +37,10 @@ Tudo vem de variáveis de ambiente via `django-environ` (veja `.env.sample`):
 | `DJANGO_ALLOWED_HOSTS` | `["*"]` | hosts permitidos |
 | `DJANGO_TIME_ZONE` | `America/Sao_Paulo` | fuso da aplicação |
 | `DATABASE_URL` | sqlite `db.sqlite3` | só relevante em prod (Postgres) |
-| `PACOTE_VICIO_API_KEY` | `""` | chave da API PacoteVício (RapidAPI) |
+| `PACOTE_VICIO_API_KEY` | `""` | chave da API PacoteVício (`pv1_...`) |
 | `PACOTE_VICIO_BASE_URL` | `https://api.pacotevicio.dev` | base da API |
 | `PACOTE_VICIO_TIMEOUT` | `35` | timeout do HTTP (s) |
-| `COTA_DIARIA` | `900` | teto de requisições/dia do `SyncLog` |
+| `COTA_MENSAL` | `1000` | teto de requisições/mês do `SyncLog` |
 | `SYNC_WORKERS` | `4` | threads paralelas do `sync_all` (1 = sequencial; sempre sequencial em SQLite) |
 | `PACOTE_NOTIFY_EMAIL` | `""` | e-mail para receber avisos (entrega/atraso); vazio = sem envio |
 | `DJANGO_DEFAULT_FROM_EMAIL` | `no-reply@rastreador.local` | remetente dos e-mails |

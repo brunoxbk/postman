@@ -5,7 +5,8 @@ Integração da aplicação com a API pública de rastreamento PacoteVício
 devolve o histórico do objeto, com detecção automática da transportadora pelo formato do
 código.
 
-> O contrato completo está no manual oficial: ver `pacote_vicio.txt` na raiz do repositório.
+> O contrato completo está documentado em `pacote_vicio.md` na raiz do repositório
+> (versão formatada do manual oficial).
 
 ## 🔗 Acesso à API
 

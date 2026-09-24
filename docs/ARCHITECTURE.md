@@ -9,7 +9,7 @@
                     └───────────────┬──────────────────────────────┘
                                     │ python manage.py sync_trackings
                                     ▼
-   ┌────────────┐   HTTP + X-RapidAPI-Key   ┌─────────────────┐
+   ┌────────────┐   HTTP + X-API-Key   ┌─────────────────┐
    │PacoteVício │ ◄────────────────────────►│ apps/carriers   │
    │   API      │    (1 request / package)  │ client+adapters │
    └────────────┘                           └────────┬─────────┘
@@ -97,13 +97,16 @@ aware no fuso `America/Sao_Paulo`.
 
 ### 4. Sincronização (`apps/carriers/sync.py`)
 
-O management command `sync_trackings` roda via cron e executa `sync_all()`, que itera
-apenas as encomendas `is_active=True`. Para cada uma, `sync_package()`:
+O management command `sync_trackings` (cron) e o botão **"Atualizar todos"** do painel web
+executam `sync_all()`, que itera apenas as encomendas `is_active=True` ainda **não
+sincronizadas hoje** — `pending_packages()` filtra `last_synced_at` nulo ou anterior ao
+início do dia (janela "no dia", para não consumir cota re-consultando o que já foi
+sincronizado). Para cada uma, `sync_package()`:
 
 1. Confere a **cota** (`SyncLog.is_paused()`) e devolve `SyncResult.PAUSED` se estourou.
 2. Monta params via adapter (`document` do CPF se necessário — sem ele, J&T devolve
    `SyncResult.NO_DOCUMENT`).
-3. `client.fetch(adapter.host_path, params)`; registra `SyncLog.increment()` após sucesso.
+3. `client.fetch(adapter.nid, tracking_code, document)`; registra `SyncLog.increment()` após sucesso.
 4. `adapter.normalize(raw)` → `_apply_events()`:
    - cria eventos com **dedupe** via `make_fingerprint` (SHA1 de
      `package_id;occurred_at;status_key;status_label`) usando `bulk_create(ignore_conflicts=True)`.
@@ -122,7 +125,7 @@ Resultado tipado (`SyncResult`, enum em `sync.py`):
 |---|---|
 | `OK` | sincronizado com sucesso |
 | `ERROR` | falha (5xx/timeout ou 4xx permanente) |
-| `PAUSED` | cota diária atingida |
+| `PAUSED` | cota mensal atingida |
 | `NO_DOCUMENT` | sem CPF (J&T) — nada foi consultado |
 
 **Paralelismo:** `sync_all()` consome as encomendas num `ThreadPoolExecutor` com
@@ -136,11 +139,12 @@ Estados terminais (`TERMINAL_STATES`): `delivered`, `failed`, `returned`, `inact
 Assim que o rastreio chega em estado final (`is_terminal=True` no payload), a encomenda
 vira `is_active=False` e sai da fila de sincronização do cron — economizando cota.
 
-### 6. Cota diária (RapidAPI)
+### 6. Cota mensal (PacoteVício)
 
-`core.models.SyncLog` guarda o total de requisições do dia. O campo `quota_limit` é
-inicializado com `COTA_DIARIA` (default 900) e o `is_paused()` mantém a execução abaixo do
-teto. Quando atinge o limite, o cron pausa até o próximo dia.
+`core.models.SyncLog` guarda o total de requisições do **mês** (linha única por mês,
+`month` = primeiro dia do período). O campo `quota_limit` é inicializado com `COTA_MENSAL`
+(default 1000) e o `is_paused()` mantém a execução abaixo do teto. Quando atinge o limite,
+a sincronização pausa até o próximo período.
 
 ### 7. Campos `last_raw` e `last_error`
 
@@ -154,7 +158,9 @@ no admin via ORM e na API.
 O botão "Atualizar agora" do painel web (`package_sync_now`) não bloqueia a requisição:
 ele despacha `spawn_background_sync()` — uma `threading.Thread` daemon que re-busca a
 encomenda, executa `sync_package()` e fecha a conexão do Django no fim (`connection.close()`),
-evitando vazamento de conexão entre threads. O resultado aparece na próxima atualização
+evitando vazamento de conexão entre threads. O botão **"Atualizar todos"** (`sync_all_now`,
+`POST /sync/all/`) faz o mesmo com `spawn_background_sync_all()`, que roda `sync_all()`
+apenas sobre as encomendas pendentes. O resultado aparece na próxima atualização
 automática do dashboard (auto-refresh via partial). A API DRF (`POST .../sync/`) permanece
 **síncrona** por contrato de consumo (`sync_status` na resposta).
 
@@ -187,12 +193,12 @@ automática do dashboard (auto-refresh via partial). A API DRF (`POST .../sync/`
 
 ### `core.SyncLog`
 
-`day` (unique), `requests`, `quota_limit`, `created_at`. Métodos `increment()`,
-`count_today()`, `is_paused()`.
+`month` (unique), `requests`, `quota_limit`, `created_at`. Métodos `increment()`,
+`count_period()`, `is_paused()`.
 
 ## API externa
 
 A API PacoteVício é consumida em `apps/carriers/client.py` (`PacoteVicioClient.fetch`),
-que injeta o header `X-RapidAPI-Key` e respeita `PACOTE_VICIO_BASE_URL` +
+que injeta o header `X-API-Key` e respeita `PACOTE_VICIO_BASE_URL` +
 `PACOTE_VICIO_TIMEOUT`. As respostas de exemplo usadas nos testes das transportadoras
 estão em `apps/carriers/tests/fixtures/*.json` (extraídas do `doc_api.md`).

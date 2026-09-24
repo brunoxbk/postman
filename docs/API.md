@@ -139,7 +139,7 @@ Detecção automática: omita o `carrier` — `{"tracking_code":"AM101610575BR"}
 
 ### `POST /api/v1/packages/{tracking_code}/sync/`
 
-Executa um sync imediato da encomenda (consome 1 requisição da cota diária). Retorna o
+Executa um sync imediato da encomenda (consome 1 requisição da cota mensal). Retorna o
 status do sync e o pacote atualizado.
 
 ```
@@ -155,7 +155,7 @@ curl -s -X POST https://postman.example.com/api/v1/packages/AM101610575BR/sync/ 
 ```
 
 Valores de `sync_status`: `true` (ok), `false` (erro controlado, exemplo: J&T sem CPF ou
-erro permanente 4xx), `null` (cota diária atingida — sincronização pausada).
+erro permanente 4xx), `null` (cota mensal atingida — sincronização pausada).
 
 > **Erro permanente (4xx):** códigos `400`, `404`, `410` e `422` fazem a encomenda ser
 > **desativada** (`is_active=false`) — ela sai da fila do cron e só volta via "Reabrir

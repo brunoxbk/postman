@@ -21,7 +21,7 @@ class Command(BaseCommand):
         quiet = options["quiet"]
         results = sync_all()
         if results["pausado"]:
-            logger.warning("Cota diária atingida — %s encomendas pausadas.", results["pausado"])
+            logger.warning("Cota mensal atingida — %s encomendas pausadas.", results["pausado"])
         if not quiet:
             self.stdout.write("=" * 40)
         for key, value in results.items():

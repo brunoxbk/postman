@@ -114,7 +114,7 @@ def _location_string(location) -> str:
 
 
 def normalize_v1(raw: dict) -> NormalizedPayload:
-    """Converte a resposta normalizada do GET /v1/track (ver pacote_vicio.txt) em
+    """Converte a resposta normalizada do GET /v1/track (ver pacote_vicio.md) em
     NormalizedPayload. Os eventos vêm do mais antigo para o mais recente; o evento
     sintético do plano Básico (status 'unknown') é preservado, como exige a API."""
     events = []

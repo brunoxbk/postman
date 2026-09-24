@@ -57,9 +57,10 @@ class WebTestCase(TestCase):
     def test_dashboard_shows_quota_and_carrier_filter(self):
         self.login()
         resp = self.client.get("/")
-        self.assertContains(resp, "Cota diária")
-        self.assertContains(resp, "900")
+        self.assertContains(resp, "Cota mensal")
+        self.assertContains(resp, "1000")
         self.assertContains(resp, 'name="carrier"')
+        self.assertContains(resp, "Atualizar todos")
 
     def test_dashboard_search_by_label(self):
         self.login()
@@ -78,6 +79,24 @@ class WebTestCase(TestCase):
         self.assertContains(resp, "Meu pacote")
         self.assertContains(resp, "Último evento")
         self.assertContains(resp, 'name="sort"')
+
+    def test_dashboard_defaults_to_in_transit(self):
+        self.login()
+        in_transit = Package.objects.create(tracking_code="AM101610575BR", carrier="correios")
+        delivered = Package.objects.create(tracking_code="AM101610576BR", carrier="correios")
+        delivered.mark_terminal("100", "delivered")
+        delivered.save()
+        resp = self.client.get("/")
+        self.assertContains(resp, in_transit.tracking_code)
+        self.assertNotContains(resp, delivered.tracking_code)
+
+    def test_dashboard_shows_all_when_state_explicitly_empty(self):
+        self.login()
+        delivered = Package.objects.create(tracking_code="AM101610576BR", carrier="correios")
+        delivered.mark_terminal("100", "delivered")
+        delivered.save()
+        resp = self.client.get("/", {"state": ""})
+        self.assertContains(resp, delivered.tracking_code)
 
     def test_dashboard_paginates(self):
         self.login()
@@ -101,6 +120,29 @@ class WebTestCase(TestCase):
         self.assertEqual(resp.status_code, 302)
         self.assertEqual(resp.url, "/packages/AM101610575BR/")
         spawn.assert_called_once()
+
+    def test_sync_all_now_post(self):
+        self.login()
+        Package.objects.create(tracking_code="AM101610575BR", carrier="correios")
+        with mock.patch("apps.trackings.views.spawn_background_sync_all") as spawn:
+            resp = self.client.post("/sync/all/", follow=True)
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "desatualizada")
+        spawn.assert_called_once()
+
+    def test_sync_all_now_get_is_blocked(self):
+        self.login()
+        resp = self.client.get("/sync/all/")
+        self.assertEqual(resp.status_code, 405)
+
+    def test_sync_all_now_quota_paused_message(self):
+        self.login()
+        with mock.patch("apps.trackings.views.SyncLog.is_paused", return_value=True) as paused:
+            with mock.patch("apps.trackings.views.spawn_background_sync_all") as spawn:
+                resp = self.client.post("/sync/all/", follow=True)
+        self.assertContains(resp, "Cota mensal atingida")
+        paused.assert_called()
+        spawn.assert_not_called()
 
     def test_dashboard_auto_refreshes(self):
         self.login()
@@ -126,7 +168,7 @@ class WebTestCase(TestCase):
         with mock.patch("apps.trackings.views.SyncLog.is_paused", return_value=True) as paused:
             with mock.patch("apps.trackings.views.spawn_background_sync") as spawn:
                 resp = self.client.post("/packages/AM101610575BR/sync/", follow=True)
-        self.assertContains(resp, "Cota diária atingida")
+        self.assertContains(resp, "Cota mensal atingida")
         paused.assert_called()
         spawn.assert_not_called()
 

@@ -5,6 +5,7 @@ from enum import Enum
 from django.conf import settings
 from django.core.mail import send_mail
 from django.db import connection
+from django.db.models import Q
 from django.urls import reverse
 from django.utils import timezone
 
@@ -92,7 +93,7 @@ def _apply_events(package: Package, normalized) -> None:
 
 def sync_package(package: Package, client: PacoteVicioClient | None = None) -> SyncResult:
     if SyncLog.is_paused():
-        package.last_error = "Cota diária atingida — sincronização pausada."
+        package.last_error = "Cota mensal atingida — sincronização pausada."
         package.save(update_fields=["last_error"])
         return SyncResult.PAUSED
     client = client or PacoteVicioClient()
@@ -131,10 +132,17 @@ def _sync_one(package: Package, client: PacoteVicioClient) -> SyncResult:
         return SyncResult.ERROR
 
 
+def pending_packages() -> list[Package]:
+    start_of_day = timezone.localdate()
+    return Package.objects.filter(is_active=True).filter(
+        Q(last_synced_at__isnull=True) | Q(last_synced_at__lt=start_of_day)
+    )
+
+
 def sync_all(client: PacoteVicioClient | None = None) -> dict:
     client = client or PacoteVicioClient()
     results = {"ok": 0, "erro": 0, "pausado": 0, "sem_documento": 0}
-    packages = list(Package.objects.filter(is_active=True))
+    packages = list(pending_packages())
     workers = getattr(settings, "SYNC_WORKERS", 4)
     if workers <= 1 or len(packages) <= 1 or connection.vendor == "sqlite":
         for package in packages:

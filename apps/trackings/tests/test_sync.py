@@ -1,10 +1,12 @@
 import json
+from datetime import timedelta
 from pathlib import Path
 from unittest import mock, skipUnless
 
 from django.core import mail
 from django.db import connection
 from django.test import TestCase, override_settings
+from django.utils import timezone
 
 from apps.carriers.exceptions import PacoteVicioClientError
 from apps.carriers.payload import NormalizedPayload
@@ -219,6 +221,33 @@ class SyncAllTestCase(TestCase):
             results = sync_all(FakeClient({}))
         self.assertEqual(results["pausado"], 1)
         self.assertEqual(results["ok"], 0)
+
+    def test_sync_all_skips_recently_synced_packages(self):
+        recent = Package.objects.create(
+            tracking_code="X1", carrier="correios", last_synced_at=timezone.now()
+        )
+        Package.objects.create(tracking_code="X2", carrier="correios")
+        raw = {"tracking_code": "X2", "courier": "correios",
+               "status": "pending", "status_updated_at": None, "events": []}
+        client = FakeClient(raw)
+        results = sync_all(client)
+        self.assertEqual(results["ok"], 1)
+        self.assertEqual(client.calls, 1)
+        self.assertEqual(client.last, ("correios", "X2", ""))
+        recent.refresh_from_db()
+        self.assertIsNotNone(recent.last_synced_at)
+
+    def test_sync_all_syncs_packages_not_synced_today(self):
+        yesterday = timezone.localdate() - timedelta(days=1)
+        Package.objects.create(
+            tracking_code="X1", carrier="correios", last_synced_at=yesterday
+        )
+        raw = {"tracking_code": "X1", "courier": "correios",
+               "status": "pending", "status_updated_at": None, "events": []}
+        client = FakeClient(raw)
+        results = sync_all(client)
+        self.assertEqual(results["ok"], 1)
+        self.assertEqual(client.calls, 1)
 
 
 @override_settings(SYNC_WORKERS=4)

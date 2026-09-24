@@ -11,7 +11,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from apps.carriers.sync import sync_package
+from apps.carriers.sync import pending_packages, sync_all, sync_package
 from apps.core.models import SyncLog
 from apps.trackings.forms import PackageForm
 from apps.trackings.models import (
@@ -35,7 +35,8 @@ def _dashboard_context(request):
     qs = Package.objects.all().defer("last_raw")
     q = request.GET.get("q", "").strip()
     carrier = request.GET.get("carrier", "").strip()
-    state = request.GET.get("state", "").strip()
+    raw_state = request.GET.get("state")
+    state = STATE_IN_TRANSIT if raw_state is None else raw_state.strip()
     sort = request.GET.get("sort", "created").strip()
     if q:
         qs = qs.filter(Q(tracking_code__icontains=q) | Q(label__icontains=q))
@@ -63,8 +64,8 @@ def _dashboard_context(request):
         "packages": page_obj.object_list,
         **counts,
         "quota": {
-            "used": SyncLog.count_today(),
-            "limit": getattr(settings, "COTA_DIARIA", 900),
+            "used": SyncLog.count_period(),
+            "limit": getattr(settings, "COTA_MENSAL", 1000),
         },
         "last_synced_at": last_synced_at,
         "filter_q": q, "filter_carrier": carrier, "filter_state": state, "filter_sort": sort,
@@ -130,12 +131,44 @@ def spawn_background_sync(package: Package) -> threading.Thread:
     return thread
 
 
+def _run_sync_all_in_background() -> None:
+    try:
+        sync_all()
+    finally:
+        connection.close()
+
+
+def spawn_background_sync_all() -> threading.Thread:
+    thread = threading.Thread(
+        target=_run_sync_all_in_background,
+        daemon=True,
+        name="sync-all",
+    )
+    thread.start()
+    return thread
+
+
+@login_required
+@require_POST
+def sync_all_now(request):
+    if SyncLog.is_paused():
+        messages.warning(request, "Cota mensal atingida — sincronização pausada.")
+    else:
+        pending = pending_packages().count()
+        spawn_background_sync_all()
+        messages.success(
+            request,
+            f"Sincronização iniciada em segundo plano para {pending} encomenda(s) desatualizada(s).",
+        )
+    return redirect("dashboard")
+
+
 @login_required
 @require_POST
 def package_sync_now(request, tracking_code):
     package = get_object_or_404(Package, tracking_code__iexact=tracking_code)
     if SyncLog.is_paused():
-        messages.warning(request, "Cota diária atingida — sincronização pausada.")
+        messages.warning(request, "Cota mensal atingida — sincronização pausada.")
     else:
         spawn_background_sync(package)
         messages.success(

@@ -5,23 +5,23 @@ from django.utils import timezone
 
 
 class SyncLog(models.Model):
-    day = models.DateField(unique=True)
+    month = models.DateField(unique=True)
     requests = models.PositiveIntegerField(default=0)
     quota_limit = models.PositiveIntegerField()
     created_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ["-day"]
+        ordering = ["-month"]
 
     def __str__(self):
-        return f"{self.day} — {self.requests}/{self.quota_limit}"
+        return f"{self.month} — {self.requests}/{self.quota_limit}"
 
     @classmethod
     def _row(cls):
-        today = timezone.localdate()
+        month = timezone.localdate().replace(day=1)
         obj, _ = cls.objects.get_or_create(
-            day=today,
-            defaults={"quota_limit": getattr(settings, "COTA_DIARIA", 900)},
+            month=month,
+            defaults={"quota_limit": getattr(settings, "COTA_MENSAL", 1000)},
         )
         return obj
 
@@ -33,7 +33,7 @@ class SyncLog(models.Model):
         return obj.requests
 
     @classmethod
-    def count_today(cls) -> int:
+    def count_period(cls) -> int:
         return cls._row().requests
 
     @classmethod

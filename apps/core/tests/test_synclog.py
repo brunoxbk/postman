@@ -8,15 +8,26 @@ from apps.core.models import SyncLog
 
 
 class SyncLogTestCase(TestCase):
-    def test_increment_same_day(self):
+    def test_increment_same_month(self):
         SyncLog.increment()
         SyncLog.increment()
         SyncLog.increment()
-        self.assertEqual(SyncLog.count_today(), 3)
+        self.assertEqual(SyncLog.count_period(), 3)
 
-    def test_count_today_isolation(self):
+    def test_count_period_isolation(self):
         SyncLog.increment()
-        self.assertEqual(SyncLog.count_today(), 1)
+        self.assertEqual(SyncLog.count_period(), 1)
+
+    def test_month_row_is_first_day_of_month(self):
+        SyncLog.increment()
+        row = SyncLog._row()
+        self.assertEqual(row.month.day, 1)
+
+    def test_is_paused_when_quota_limit_reached(self):
+        self.assertFalse(SyncLog.is_paused())
+        row = SyncLog._row()
+        SyncLog.objects.filter(pk=row.pk).update(requests=row.quota_limit)
+        self.assertTrue(SyncLog.is_paused())
 
 
 @skipUnless(connection.vendor == "postgresql", "Concorrência exige Postgres (sqlite em memória trava em escritas paralelas)")
@@ -31,4 +42,4 @@ class SyncLogConcurrentTestCase(TransactionTestCase):
             t.start()
         for t in threads:
             t.join()
-        self.assertEqual(SyncLog.count_today(), 100)
+        self.assertEqual(SyncLog.count_period(), 100)
