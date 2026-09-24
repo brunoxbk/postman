@@ -69,29 +69,29 @@ dokku run postman python manage.py collectstatic --noinput
 
 ## 5. Cron (3×/dia)
 
-Edite o crontab do **host** (não dentro do container):
+O cron roda no crontab do **host** (não dentro do container). Ao contrário da RAM limitada
+do container, o host tem o cron do sistema (Vixie-cron do Ubuntu **não** suporta `CRON_TZ`,
+então use horários já convertidos para o fuso do host — aqui, **UTC**):
 
 ```bash
-crontab -e
+# root@host
+sudo crontab -e
 ```
 
 ```cron
-# America/Sao_Paulo. (Ajuste o fuso do host OU use CRON_TZ)
-40 8 * * * dokku run postman python manage.py sync_trackings >/dev/null 2>&1
-0  13 * * * dokku run postman python manage.py sync_trackings >/dev/null 2>&1
-0  19 * * * dokku run postman python manage.py sync_trackings >/dev/null 2>&1
+# 08:40/13:00/19:00 America/Sao_Paulo = 11:40/16:00/22:00 UTC (host em Etc/UTC)
+40 11 * * * /usr/bin/dokku run postman python manage.py sync_trackings --quiet >> /var/log/sync.log 2>&1
+0 16 * * * /usr/bin/dokku run postman python manage.py sync_trackings --quiet >> /var/log/sync.log 2>&1
+0 22 * * * /usr/bin/dokku run postman python manage.py sync_trackings --quiet >> /var/log/sync.log 2>&1
 ```
 
-Se o fuso do host não for America/Sao_Paulo, prefixe com `CRON_TZ=America/Sao_Paulo`
-(disponível no cronie/Vixie recentes) ou converta os horários para o fuso do host.
+> Use o **caminho completo do `dokku`** (descubra com `command -v dokku`) e ponha `2>&1`
+> no log para diagnosticar falhas. O `sync_trackings` sai com **código ≠ 0** quando alguma
+> encomenda falhou ou a cota foi atingida.
 
-O command sai com **código ≠ 0** quando alguma encomenda falhou ou a cota foi
-atingida — assim o crontab pode alertar (ex.: `> /dev/null` que não silencia stderr;
-mude para `2>&1` e monitore pela saída). Use `--quiet` para imprimir só os totais:
-
-```cron
-40 8 * * * dokku run postman python manage.py sync_trackings --quiet 2>>/var/log/sync.log || echo "sync falhou" >>/var/log/sync.log
-```
+O comando roda **apenas encomendas desatualizadas** (`pending_packages()`): com a janela
+"no dia", a primeira execução do dia (08:40) sincroniza tudo; as de 13:00 e 19:00 só
+pegam o que ainda não foi sincronizado hoje (poupa cota).
 
 Valide manualmente antes de confiar no cron:
 

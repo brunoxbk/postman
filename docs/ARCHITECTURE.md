@@ -42,10 +42,16 @@ Cada transportadora devolve um JSON **completamente diferente**. Um único módu
 `TotalExpressAdapter`), todas herdando `BaseAdapter` e expondo a mesma interface:
 
 - `.nid` — slug da transportadora (mesmo valor do `choices` do modelo).
-- `.name`, `.host_path` (ex.: `/correios`).
+- `.name` — nome de exibição.
 - `.requires_document` — somente J&T exige o CPF do destinatário.
-- `.build_params(tracking_code, document="")` — monta os query params da API.
-- `.normalize(raw) -> NormalizedPayload` — converte a resposta bruta para o formato canônico.
+
+A chamada é unificada no `PacoteVicioClient.fetch(nid, tracking_code, document)` (ver §4 e
+`apps/carriers/client.py`), que injeta o `X-API-Key` e retorna a resposta já **normalizada
+pela própria API** (`GET /v1/track` — ver `pacote_vicio.md`). Por isso basta um único
+conversor, `normalize_v1(raw) -> NormalizedPayload` (em `apps/carriers/adapters.py`),
+para o formato canônico — a v1 homogeneizou o que antes eram 6 `normalize` distintos.
+Somente `delivered`/`returned` (em `TERMINAL_V1_TO_STATE`) encerram o rastreio;
+`exception` mantém o ciclo ativo.
 
 O formato canônico (`apps/carriers/payload.py`):
 
@@ -107,7 +113,7 @@ sincronizado). Para cada uma, `sync_package()`:
 2. Monta params via adapter (`document` do CPF se necessário — sem ele, J&T devolve
    `SyncResult.NO_DOCUMENT`).
 3. `client.fetch(adapter.nid, tracking_code, document)`; registra `SyncLog.increment()` após sucesso.
-4. `adapter.normalize(raw)` → `_apply_events()`:
+4. `normalize_v1(raw)` → `_apply_events()`:
    - cria eventos com **dedupe** via `make_fingerprint` (SHA1 de
      `package_id;occurred_at;status_key;status_label`) usando `bulk_create(ignore_conflicts=True)`.
    - atualiza `status_code/label`, `location`, `last_event_at`, `estimated_delivery`,
