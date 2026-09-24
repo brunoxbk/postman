@@ -1,611 +1,183 @@
-# 📦 API PacoteVício - Rastreamento de Encomendas Correios, AliExpress, Shopee Xpress, Anjun Express, J&T Express e Total Express
+# 📦 API PacoteVício (v1) — Rastreamento de Encomendas
 
-Documentação da API PacoteVício para rastreamento de objetos dos Correios do Brasil, pacotes do AliExpress, Shopee Xpress, Anjun Express, J&T Express e Total Express.
-Veja mais informações na [página oficial da API PacoteVício](http://pacotevicio.dev).
+Integração da aplicação com a API pública de rastreamento PacoteVício
+(`https://api.pacotevicio.dev`). Uma única rota normalizada consulta a transportadora e
+devolve o histórico do objeto, com detecção automática da transportadora pelo formato do
+código.
+
+> O contrato completo está no manual oficial: ver `pacote_vicio.txt` na raiz do repositório.
 
 ## 🔗 Acesso à API
 
-A API é fornecida através da plataforma RapidAPI.
-Oferecemos um plano gratuito com até 1.000 requisições/mês, o que deve atender à maioria das necessidades.
-- [Página no RapidAPI](https://rapidapi.com/pacotevicio-pacotevicio-default/api/correios-rastreamento-de-encomendas)
+| Item | Valor |
+|---|---|
+| Base URL | `https://api.pacotevicio.dev` |
+| Versionamento | todos os endpoints ficam sob `/v1` |
+| Autenticação | header `X-API-Key` (formato `pv1_...`) |
+| Formato | JSON; erros nunca chegam com status 2xx |
+
+Headers:
+
+| Header | Obrigatório | Valor |
+|---|---|---|
+| `X-API-Key` | Sim | Chave no formato `pv1_...` |
+| `X-Tracking-Document` | Depende | CPF/CNPJ (somente dígitos) — **obrigatório para J&T Express** |
+| `User-Agent` | Recomendado | Identificador da aplicação, ex.: `postman/1.0` |
 
 ## 🛠️ Como Utilizar
 
-### 1. Obter uma Chave de API
+### 1. Obter uma chave
 
-Para utilizar esta API, é necessário obter uma chave de API através do RapidAPI:
+Gere a chave no portal da PacoteVício (página **Chaves de API**). Ela é consumida pelas
+variáveis do app:
 
-1. Acesse o [RapidAPI](https://rapidapi.com/pacotevicio-pacotevicio-default/api/correios-rastreamento-de-encomendas)
-2. Escolha o plano desejado (para iniciar recomendamos o BASIC que é gratuito)
-3. Crie uma conta caso seja necessário
-4. Sua chave de API (X-RapidAPI-Key) estará disponível na [área de testes](https://rapidapi.com/pacotevicio-pacotevicio-default/api/correios-rastreamento-de-encomendas/playground/apiendpoint_19d15e2c-d3a9-422f-9da1-05881c97f70d)
+```
+PACOTE_VICIO_API_KEY=pv1_...
+PACOTE_VICIO_BASE_URL=https://api.pacotevicio.dev
+PACOTE_VICIO_TIMEOUT=35
+PACOTE_VICIO_RETRY_LEVEL=high
+PACOTE_VICIO_USER_AGENT=postman/1.0
+```
 
+### 2. Rastrear um objeto
 
-## 💻 Endpoints Disponíveis
+O app usa a rota com transportadora forçada (determinística e mais rápida):
 
-A API suporta múltiplos serviços de rastreamento, todos com a mesma estrutura de requisição. Basta alterar o endpoint conforme o serviço desejado:
-
-| Serviço | Endpoint | Observações |
-|---|---|---|
-| Correios | `/correios` | Rastreamento dos Correios do Brasil |
-| AliExpress | `/aliexpress` | Rastreamento de pacotes AliExpress |
-| Shopee Xpress | `/shopee` | Rastreamento de pacotes Shopee Xpress |
-| Anjun Express | `/anjun` | Rastreamento de pacotes Anjun Express |
-| J&T Express | `/jtexpress` | Rastreamento de pacotes J&T Express |
-| Total Express | `/totalexpress` | Rastreamento de pacotes Total Express |
-
-### Parâmetros Comuns
-
-Todos os endpoints acima aceitam os mesmos parâmetros (exceto onde notado):
-
-| Parâmetro | Tipo | Obrigatório | Descrição |
-|---|---|---|---|
-| `tracking_code` | string | Sim | Código de rastreamento do pacote. Aceita diversos formatos internacionais. |
-| `confidence_level`| string | Não | Nível de confiança para tentativas de rastreamento em caso de falha. Valores: `low`, `medium`, `high`. Padrão: `high`. |
-| `language` | string | Não | Idioma da resposta. Valores: `pt-BR`, `en-US`, `fr-FR`, `zh-CN`. Padrão: `en-US`. |
-| `document` | string | Sim* | Obrigatório **apenas** para J&T Express. Deve conter o CPF do destinatário (apenas números). |
-
-> **Nota:** O parâmetro `language` só é aceito para AliExpress.
-
-#### Sobre `confidence_level`
-
-Este parâmetro define o nível de esforço da API para tentar obter uma resposta dos Correios em situações de instabilidade do mesmo.
-
-- `low`: não haverá novas tentativas. Garante resposta no pior cenário que não ultrapassará ~10 segundos, ao custo de uma menor chance de sucesso.
-- `medium`: serão feitas algumas tentativas. No pior cenário levará ~20 segundos e uma chance maior de sucesso.
-- `high`: mais tentativas serão feitas. No pior cenário pode demorar até ~30 segundos, mas tem maior chance de retorno com sucesso.
-
-Escolha e ajuste o timeout de seu cliente conforme a necessidade da sua aplicação. Se o parâmetro for omitido, o valor padrão será `high`.
-
-### Exemplo de Requisição com cURL
+```
+GET /v1/track/{courier}/{tracking_code}
+```
 
 ```bash
-curl -X GET "https://api.pacotevicio.dev/correios?tracking_code=AM101610575BR" \
-  --header "X-RapidAPI-Key: SUA_CHAVE_DE_API"
+curl "https://api.pacotevicio.dev/v1/track/correios/AM101610575BR?retry_level=high" \
+  -H "X-API-Key: pv1_..." \
+  -H "User-Agent: postman/1.0"
+
+curl "https://api.pacotevicio.dev/v1/track/jtexpress/888030556767025" \
+  -H "X-API-Key: pv1_..." \
+  -H "X-Tracking-Document: 12345678901"
 ```
 
-Troque `/correios` por `/aliexpress`, `/shopee`, `/anjun`, `/jtexpress` ou `/totalexpress` conforme o serviço desejado.
+`retry_level` controla quanta latência a API tolera antes de desistir (`low` 10s, `medium` 20s,
+`high` 45s). Para o job em segundo plano (cron e botão de sync) o padrão é `high`.
 
----
-
-## 📋 Resposta
-
-<details>
-<summary><strong>Exemplo de resposta - Correios</strong></summary>
+### 3. Resposta normalizada
 
 ```json
 {
-  "codObjeto": "AM101610575BR",
-  "tipoPostal": {
-    "sigla": "AM",
-    "descricao": "ETIQUETA LOGICA PAC",
-    "categoria": "ENCOMENDA PAC",
-    "tipo": "N"
-  },
-  "dtPrevista": "20/03/2025",
-  "modalidade": "F",
-  "eventos": [
+  "tracking_code": "BR123456789BR",
+  "courier": "correios",
+  "status": "delivered",
+  "status_updated_at": "2026-07-20T10:00:00Z",
+  "service": "SEDEX",
+  "origin": null,
+  "destination": { "country": "BR", "state": "SP", "city": "Franca", "name": null },
+  "estimated_delivery_date": "2026-07-20",
+  "delivered_at": "2026-07-20T10:00:00Z",
+  "recipient": { "name": "Bruno", "signed_by": "BRUNO" },
+  "events": [
     {
-      "codigo": "BDE",
-      "tipo": "01",
-      "dtHrCriado": {
-        "date": "2025-03-03 23:30:03.000000",
-        "timezone_type": 3,
-        "timezone": "America/Sao_Paulo"
-      },
-      "descricao": "Objeto entregue ao destinatário",
-      "unidade": {
-        "codSro": "50630977",
-        "tipo": "Unidade de Tratamento",
-        "endereco": {
-          "cidade": "Recife",
-          "uf": "PE"
-        }
-      },
-      "unidadeDestino": null,
-      "descricaoFrontEnd": "ENTREGUE",
-      "finalizador": "S",
-      "rota": "CONTEXTO",
-      "descricaoWeb": "ENTREGUE",
-      "detalhe": "Nossa entrega atendeu às suas expectativas? Conte pra gente: https://survey3.medallia.com/?correios-nps-sms-sro&obj=AM101610575BR",
+      "timestamp": "2026-07-14T18:51:28Z",
+      "status": "unknown",
+      "description": "Rastreio fornecido por PacoteVicio.dev",
+      "location": null,
+      "courier_status_code": null,
+      "courier_status_label": null,
+      "detail": null,
+      "comment": null
     },
     {
-      "codigo": "PO",
-      "tipo": "09",
-      "dtHrCriado": {
-        "date": "2025-02-24 15:51:29.000000",
-        "timezone_type": 3,
-        "timezone": "America/Sao_Paulo"
-      },
-      "descricao": "Objeto postado após o horário limite da unidade",
-      "unidade": {
-        "codSro": "65995970",
-        "tipo": "Agência dos Correios",
-        "endereco": {
-          "cidade": "Feira Nova do Maranhao",
-          "uf": "MA",
-        }
-      },
-      "unidadeDestino": null,
-      "descricaoFrontEnd": "Postado depois do horário",
-      "finalizador": "N",
-      "rota": "NORMAL",
-      "descricaoWeb": "POSTAGEM",
-      "detalhe": "Sujeito a encaminhamento no próximo dia útil",
+      "timestamp": "2026-07-20T10:00:00Z",
+      "status": "delivered",
+      "description": "Objeto entregue ao destinatário",
+      "location": { "country": "BR", "state": "SP", "city": "Franca", "facility": null },
+      "courier_status_code": "BDE",
+      "courier_status_label": "Entregue",
+      "detail": null,
+      "comment": null
     }
-  ],
-  "situacao": "E",
-  "autoDeclaracao": false,
-  "encargoImportacao": false,
-  "percorridaCarteiro": false,
-  "bloqueioObjeto": false,
-  "arEletronico": false,
-  "atrasado": false
+  ]
 }
 ```
-</details>
 
-<details>
-<summary><strong>Exemplo de resposta - AliExpress</strong></summary>
+Regras que o app respeita:
+
+- **Use `status`, nunca `courier_status_code`** — o primeiro é normalizado e estável; o segundo
+  é o vocabulário bruto da transportadora e pode mudar sem aviso.
+- **`events` vai do mais antigo para o mais recente**; o evento atual é o último do array.
+- No plano Básico o **primeiro evento é uma atribuição sintética** (`status: unknown`,
+  "Rastreio fornecido por PacoteVício.dev"). É **proibido remover, ocultar, alterar ou
+  substituir** esse evento — o app o preserva na timeline.
+- **Timestamps são RFC 3339 em UTC** (sufixo `Z`).
+- `estimated_delivery_date` é `YYYY-MM-DD`, sem fuso.
+
+### Status normalizados
+
+| `status` | Significado |
+|---|---|
+| `pending` | Etiqueta emitida, ainda sem movimentação |
+| `collected` | Coletado do remetente ou postado |
+| `in_transit` | Em trânsito pela rede da transportadora |
+| `out_for_delivery` | Com o entregador, saiu para entrega |
+| `available_for_pickup` | Aguardando retirada em um ponto |
+| `tax` | Aguardando pagamento de tributo ou revisão tributária |
+| `delivered` | Entregue (**terminal** — encerra o rastreio) |
+| `exception` | Tentativa falha, problema aduaneiro, avaria ou endereço |
+| `returned` | Devolvido ao remetente (**terminal** — encerra o rastreio) |
+| `unknown` | Sem tradução, ou atribuição sintética do plano Básico |
+
+Valores desconhecidos devem ser tratados como `unknown`.
+
+### Erros
+
+Use **`error.code`** (contrato estável), nunca a `message`. Envelope:
 
 ```json
 {
-    "mailNo": "LP00123456789CN",
-    "originCountry": "Mainland China",
-    "destCountry": "Brazil",
-    "status": "CLEAR_CUSTOMS",
-    "statusDesc": "In customs ",
-    "mailNoSource": "AE",
-    "globalEtaInfo": {
-        "etaDesc": "Estimated delivery by",
-        "deliveryMinTime": 1749006268984,
-        "deliveryMaxTime": 1750475068984
-    },
-    "detailList": [
-        {
-            "time": 1748410407000,
-            "timeStr": "2025-05-28 13:33:27",
-            "desc": "",
-            "standerdDesc": "Import customs clearance complete",
-            "descTitle": "Carrier note:",
-            "timeZone": "GMT-3",
-            "actionCode": "CC_IM_SUCCESS"
-        },
-        {
-            "time": 1747839077000,
-            "timeStr": "2025-05-21 22:51:17",
-            "desc": "",
-            "standerdDesc": "[Shatian Town] Processing at sorting center",
-            "descTitle": "Carrier note:",
-            "timeZone": "GMT+8",
-            "actionCode": "SC_INBOUND_SUCCESS"
-        },
-        {
-            "time": 1747805584000,
-            "timeStr": "2025-05-21 13:33:04",
-            "desc": "",
-            "standerdDesc": "Received by logistics company",
-            "descTitle": "Carrier note:",
-            "timeZone": "GMT+8",
-            "actionCode": "PU_PICKUP_SUCCESS"
-        }
-    ],
-    "daysNumber": "8\tday(s)"
+  "error": {
+    "code": "tracking_not_found",
+    "message": "A transportadora não encontrou registro para este código.",
+    "request_id": "0ebcea5b-1727-4bf9-af88-4deb11b438f2"
+  }
 }
 ```
-</details>
 
-<details>
-<summary><strong>Exemplo de resposta - Shopee</strong></summary>
+Códigos relevantes para o app:
 
-```json
-{
-    "sls_tracking_number": "BR2561249217932",
-    "need_translate": 0,
-    "delivery_type": "SHOPEE_CREDIT",
-    "recipient_name": "",
-    "phone": "",
-    "current_status": "Delivered",
-    "tracking_list": [
-        {
-            "timestamp": 1749140169,
-            "status": "Delivered",
-            "message": "[LM Hub_MG_Uberlândia] Your parcel has been delivered [Fulano da Silva] [ Receptionist]"
-        },
-        {
-            "timestamp": 1749122864,
-            "status": "Delivering",
-            "message": "[LM Hub_MG_Uberlândia] Your parcel is being delivered by courier"
-        },
-        {
-            "timestamp": 1749089703,
-            "status": "LMHub_Received",
-            "message": "[LM Hub_MG_Uberlândia] Your parcel has been received by delivery hub"
-        },
-        {
-            "timestamp": 1749034791,
-            "status": "SOC_LHTransporting",
-            "message": "Parcel [TO202506041ZAJ7] transporting to [LM Hub_MG_Uberlândia]"
-        },
-        {
-            "timestamp": 1748937958,
-            "status": "SOC_Received",
-            "message": "[SoC_SP_Santana] Your parcel has been received by sorting center"
-        },
-        {
-            "timestamp": 1748906285,
-            "status": "SOC_Pickup_Done",
-            "message": "[SoC_SP_Santana] Your parcel has been picked up"
-        },
-        {
-            "timestamp": 1748904099,
-            "status": "DOP_Received",
-            "message": "Your parcel has been received by drop off point"
-        },
-        {
-            "timestamp": 1748893392,
-            "status": "Created",
-            "message": "Order has been created"
-        }
-    ],
-    "status_list": [
-        {
-            "timestamp": 1748893392,
-            "code": 1,
-            "text": "Created",
-            "state_ls": "Created",
-            "icon": "Order Created"
-        },
-        {
-            "timestamp": 1748937958,
-            "code": 1,
-            "text": "Pending_Receive",
-            "state_ls": "Pending_Receive",
-            "icon": "Picked Up"
-        },
-        {
-            "timestamp": 1749089703,
-            "code": 1,
-            "text": "Pending",
-            "state_ls": "Pending",
-            "icon": "Sorting"
-        },
-        {
-            "timestamp": 1749122864,
-            "code": 1,
-            "text": "Assigned",
-            "state_ls": "Assigned",
-            "icon": "Courier Delivery"
-        },
-        {
-            "timestamp": 1749140169,
-            "code": 1,
-            "text": "Delivered",
-            "state_ls": "Delivered",
-            "icon": "Delivered"
-        }
-    ]
-}
+| Código | HTTP | Tratamento no app |
+|---|---|---|
+| `invalid_api_key`, `missing_api_key` | 401 | mantém o pacote ativo (log; a chave pode ser corrigida) |
+| `subscription_inactive`, `account_suspended`, `phone_verification_required` | 403 | mantém o pacote ativo (log) |
+| `tracking_not_found` | 404 | mantém o pacote ativo — o código **pode** passar a existir depois; consome cota |
+| `invalid_tracking_code`, `courier_not_supported` | 400 | **desativa** o pacote (não adianta repetir) |
+| `courier_not_detected`, `document_required`, `invalid_document` | 422 | mantém o pacote ativo (log) |
+| `rate_limit_exceeded` | 429 | espera o `Retry-After` e repete uma vez |
+| `quota_exceeded` | 429 | mantém ativo; erro de cota do período |
+| `courier_unavailable`, `courier_timeout`, `service_unavailable`, 5xx | 502/504/5xx | falha temporária — repetir mais tarde; não consome cota |
+
+Cobrança: consome cota apenas quando a transportadora dá resposta definitiva — `200` e
+`404 tracking_not_found`. As demais (401/403/400/422/429/5xx) não consomem.
+
+## 💻 Endpoints disponíveis
+
+| Transportadora | slug (`courier`) | Headers obrigatórios |
+|---|---|---|
+| Correios | `correios` | — |
+| AliExpress | `aliexpress` | — |
+| Shopee Xpress | `shopee` | — |
+| Anjun Express | `anjun` | — |
+| J&T Express | `jtexpress` | `X-Tracking-Document` (CPF 11 ou CNPJ 14) |
+| Total Express | `totalexpress` | — |
+
+O catálogo autoritativo pode ser consultado em:
+
 ```
-</details>
-
-<details>
-<summary><strong>Exemplo de resposta - Anjun</strong></summary>
-
-```json
-{
-    "lastTrackStatus": "signed",
-    "nodeDataList": [
-        {
-            "address": "Sorocaba / SP",
-            "codeNumber": null,
-            "collectType": null,
-            "content": null,
-            "dateTime": "21-01-2025 09:22:13",
-            "deliverdNamePhoto": null,
-            "deliverdPhoto": null,
-            "localTrackCode": "14",
-            "nextSiteName": null,
-            "operateUserName": null,
-            "problemType": "",
-            "signDesc": "Objeto entregue pelo próprio",
-            "signType": 1,
-            "signTypeName": "Objeto entregue pelo próprio",
-            "siteName": null,
-            "status": "O pacote foi assinado para",
-            "statusCode": "signed",
-            "statusDetail": null
-        },
-        {
-            "address": "Sorocaba / SP",
-            "codeNumber": null,
-            "collectType": null,
-            "content": null,
-            "dateTime": "14-01-2025 05:56:55",
-            "deliverdNamePhoto": null,
-            "deliverdPhoto": null,
-            "localTrackCode": "13",
-            "nextSiteName": null,
-            "operateUserName": null,
-            "problemType": "",
-            "signDesc": null,
-            "signType": null,
-            "signTypeName": null,
-            "siteName": null,
-            "status": "Objeto saiu para entrega ao destinatário",
-            "statusCode": "delivering",
-            "statusDetail": null
-        },
-        {
-            "address": "Sorocaba / SP",
-            "codeNumber": null,
-            "collectType": null,
-            "content": null,
-            "dateTime": "13-01-2025 14:00:16",
-            "deliverdNamePhoto": null,
-            "deliverdPhoto": null,
-            "localTrackCode": "13",
-            "nextSiteName": null,
-            "operateUserName": null,
-            "problemType": "",
-            "signDesc": null,
-            "signType": null,
-            "signTypeName": null,
-            "siteName": null,
-            "status": "Objeto saiu para entrega ao destinatário",
-            "statusCode": "delivering",
-            "statusDetail": null
-        },
-        {
-            "address": "Sorocaba / SP",
-            "codeNumber": null,
-            "collectType": null,
-            "content": null,
-            "dateTime": "13-01-2025 08:24:46",
-            "deliverdNamePhoto": null,
-            "deliverdPhoto": null,
-            "localTrackCode": "13",
-            "nextSiteName": null,
-            "operateUserName": null,
-            "problemType": "",
-            "signDesc": null,
-            "signType": null,
-            "signTypeName": null,
-            "siteName": null,
-            "status": "Objeto saiu para entrega ao destinatário",
-            "statusCode": "delivering",
-            "statusDetail": null
-        },
-        {
-            "address": "Sorocaba / SP",
-            "codeNumber": null,
-            "collectType": null,
-            "content": null,
-            "dateTime": "13-01-2025 08:23:22",
-            "deliverdNamePhoto": null,
-            "deliverdPhoto": null,
-            "localTrackCode": "13",
-            "nextSiteName": null,
-            "operateUserName": null,
-            "problemType": "",
-            "signDesc": null,
-            "signType": null,
-            "signTypeName": null,
-            "siteName": null,
-            "status": "Objeto saiu para entrega ao destinatário",
-            "statusCode": "delivering",
-            "statusDetail": null
-        },
-        {
-            "address": "Sorocaba / SP",
-            "codeNumber": "Sorocaba / SP",
-            "collectType": null,
-            "content": null,
-            "dateTime": "10-01-2025 14:25:10",
-            "deliverdNamePhoto": null,
-            "deliverdPhoto": null,
-            "localTrackCode": "12",
-            "nextSiteName": null,
-            "operateUserName": null,
-            "problemType": "",
-            "signDesc": null,
-            "signType": null,
-            "signTypeName": null,
-            "siteName": "SP-R-D086",
-            "status": "Objeto chegou ao ponto de entrega",
-            "statusCode": "delivery_site_in_storage",
-            "statusDetail": null
-        },
-        {
-            "address": "São Paulo / SP",
-            "codeNumber": 9,
-            "collectType": null,
-            "content": null,
-            "dateTime": "10-01-2025 08:37:05",
-            "deliverdNamePhoto": null,
-            "deliverdPhoto": null,
-            "localTrackCode": "09",
-            "nextSiteName": "SP-R-D086",
-            "operateUserName": null,
-            "problemType": "",
-            "signDesc": null,
-            "signType": null,
-            "signTypeName": null,
-            "siteName": null,
-            "status": "Objeto saiu do CD",
-            "statusCode": "transfer_out_storage",
-            "statusDetail": null
-        },
-        {
-            "address": "São Paulo / SP",
-            "codeNumber": 7,
-            "collectType": null,
-            "content": null,
-            "dateTime": "10-01-2025 05:47:09",
-            "deliverdNamePhoto": null,
-            "deliverdPhoto": null,
-            "localTrackCode": "08",
-            "nextSiteName": null,
-            "operateUserName": null,
-            "problemType": "",
-            "signDesc": null,
-            "signType": null,
-            "signTypeName": null,
-            "siteName": null,
-            "status": "Transferência e armazenagem",
-            "statusCode": "transfer_in_storage",
-            "statusDetail": null
-        }
-    ],
-    "providerNumber": null,
-    "trackNo": "AJ250101341570001"
-}
+GET /v1/couriers
 ```
-</details>
 
-<details>
-<summary><strong>Exemplo de resposta - J&T Express</strong></summary>
+## 🐍 No código
 
-```json
-{
-    "keyword": "888030556767025",
-    "details": [
-        {
-            "scanTime": "2026-01-17 12:55:57",
-            "scanTypeName": "快件签收",
-            "customerTracking": "[Teresina] O pacote foi assinado! O signatário é [Recebimento por terc], se você tiver alguma dúvida, entre em contato com: 0800XXXXXXX, se você tiver algum problema ou reclamação, ligue para o número da filial: 0800XXXXXXX",
-            "status": "Pedido Entregue",
-            "sigPicUrl": "aza180low1825del/lite-ylappbc/SIGNING_SCAN_LIST/20260117/880495994808124166_861674_110_20260117125543742_0649.jpeg,aza180low1825del/lite-ylappbc/SIGNING_SCAN_LIST/20260117/880496046121240381_861674_110_20260117125555976_7052.jpeg",
-            "electronicSignaturePicUrl": "https://pro-jmsbr-file.jtjms-br.com/aza180low1825del/lite-ylappbc/SIGNING_SCAN_LIST/20260117/880495954601526018_861674_110_20260117125534125_0254.jpeg?sv=2023-11-03&spr=https&se=2026-01-20T08%3A57%3A48Z&sr=b&sp=r&sig=FaWbbPP%2BybdKEbFcJyZ3b26BCmYJCoUhnLoAxJ0a8lI%3D",
-            "signList": [
-                "https://pro-jmsbr-file.jtjms-br.com/aza180low1825del/lite-ylappbc/SIGNING_SCAN_LIST/20260117/880495994808124166_861674_110_20260117125543742_0649.jpeg?sv=2023-11-03&spr=https&se=2026-01-20T08%3A57%3A48Z&sr=b&sp=r&sig=SHPFfkcqXMbbVbKK4NpvUA1Kkp1yMTbMQuuyYmYmnRc%3D",
-                "https://pro-jmsbr-file.jtjms-br.com/aza180low1825del/lite-ylappbc/SIGNING_SCAN_LIST/20260117/880496046121240381_861674_110_20260117125555976_7052.jpeg?sv=2023-11-03&spr=https&se=2026-01-20T08%3A57%3A48Z&sr=b&sp=r&sig=TtdTY5G%2FNMrz%2FCgQo8%2FudrAoDSvCOgoAZAir3GWbbH4%3D"
-            ],
-            "code": 100,
-            "remark1": "Recebimento por terc",
-            "remark2": "1"
-        },
-        {
-            "scanTime": "2026-01-16 21:29:26",
-            "scanTypeName": "出仓扫描",
-            "customerTracking": "O entregador [Teresina] [THE 02-PI], M****A está enviando a encomenda. Se você tiver algum problema ou reclamação, ligue para o número da filial: 0800XXXXXXX",
-            "status": "Em Rota de Entrega",
-            "code": 94
-        },
-        {
-            "scanTime": "2026-01-12 23:01:34",
-            "scanTypeName": "快件揽收",
-            "customerTracking": "[Guarulhos] [PA PEGAKI-GRU-SP] Seu entregador L****s retirou a encomenda. Se você tiver qualquer problema ou reclamação, ligue para o número da filial: 0800XXXXXXX",
-            "status": "Coletado",
-            "code": 10
-        }
-    ]
-}
-```
-</details>
-
-<details>
-<summary><strong>Exemplo de resposta - Total Express</strong></summary>
-
-```json
-{
-    "data": {
-        "encomenda": {
-            "pudo": null,
-            "ultimoStatusId": 1,
-            "previsaoEntrega": "2026-03-23",
-            "pedido": "P4n4XGLH2",
-            "awb": "AMZB901884819tx",
-            "nfiscal": "3*******",
-            "cliente": {
-                "fantasia": "AMAZON RETAIL TBAV - STD - PAG - DRS5"
-            }
-        },
-        "layouts": [
-            {
-                "id": 1,
-                "nome": "Nacional",
-                "label": "nacional_padrao",
-                "ultimoStepId": 4,
-                "etapas": [
-                    {
-                        "id": 1,
-                        "nome": "Em posse da transportadora",
-                        "icone": "place",
-                        "ordemNum": 1,
-                        "listaStatus": [
-                            {
-                                "statid": 84,
-                                "statusDescricao": "COLETA REALIZADA C/ NÃO CONFORMIDADE",
-                                "data": "2026-02-27",
-                                "hora": "20:51:18"
-                            },
-                            {
-                                "statid": 101,
-                                "statusDescricao": "RECEBIDA E PROCESSADA NO CD - JDU",
-                                "data": "2026-02-27",
-                                "hora": "20:51:19"
-                            }
-                        ]
-                    },
-                    {
-                        "id": 2,
-                        "nome": "Transferência para unidade local",
-                        "icone": "local_shipping",
-                        "ordemNum": 2,
-                        "listaStatus": [
-                            {
-                                "statid": 78,
-                                "statusDescricao": "EMBARCADO PARA: BLI",
-                                "data": "2026-03-02",
-                                "hora": "04:38:35"
-                            },
-                            {
-                                "statid": 108,
-                                "statusDescricao": "DESCARREGADO - BLI",
-                                "data": "2026-03-06",
-                                "hora": "14:58:41"
-                            }
-                        ]
-                    },
-                    {
-                        "id": 3,
-                        "nome": "Saída para Entrega",
-                        "icone": "local_mall",
-                        "ordemNum": 3,
-                        "listaStatus": [
-                            {
-                                "statid": 105,
-                                "statusDescricao": "EM ROTA",
-                                "data": "2026-03-06",
-                                "hora": "14:58:41"
-                            },
-                            {
-                                "statid": 104,
-                                "statusDescricao": "PROCESSO DE ENTREGA",
-                                "data": "2026-03-13",
-                                "hora": "09:38:46"
-                            }
-                        ]
-                    },
-                    {
-                        "id": 4,
-                        "nome": "Entrega Realizada",
-                        "icone": "done",
-                        "ordemNum": 4,
-                        "listaStatus": [
-                            {
-                                "statid": 1,
-                                "statusDescricao": "ENTREGA REALIZADA",
-                                "data": "2026-03-14",
-                                "hora": "08:12:29"
-                            }
-                        ]
-                    }
-                ]
-            }
-        ]
-    }
-}
-```
-</details>
+- `apps/carriers/client.py` — chamadas HTTP (URL v1, headers, retry e envelope de erro).
+- `apps/carriers/adapters.py` — `normalize_v1` (resposta normalizada → `NormalizedPayload`,
+  mapeamento de status terminais), detecção de transportadora e `is_plausible_code`.
+- `apps/carriers/parsing.py` — parse de RFC 3339 em UTC (sufixo `Z`, offsets e sem fuso).
+- `apps/carriers/sync.py` — fluxo `sync_package`/`sync_all` com decisão por `error.code`.

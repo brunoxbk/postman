@@ -8,7 +8,7 @@ from django.db import connection
 from django.urls import reverse
 from django.utils import timezone
 
-from apps.carriers.adapters import get_adapter
+from apps.carriers.adapters import get_adapter, normalize_v1
 from apps.carriers.client import PacoteVicioClient
 from apps.carriers.exceptions import PacoteVicioClientError, PacoteVicioServerError
 from apps.core.models import SyncLog
@@ -21,7 +21,7 @@ from apps.trackings.models import (
 
 logger = logging.getLogger(__name__)
 
-PERMANENT_CLIENT_ERRORS = {400, 404, 410, 422}
+PERMANENT_CLIENT_ERROR_CODES = {"invalid_tracking_code", "courier_not_supported"}
 
 
 class SyncResult(Enum):
@@ -98,16 +98,15 @@ def sync_package(package: Package, client: PacoteVicioClient | None = None) -> S
     client = client or PacoteVicioClient()
     adapter = get_adapter(package.carrier)
     if adapter.requires_document and not package.document:
-        package.last_error = "J&T Express exige o CPF do destinatário (campo 'document')."
+        package.last_error = "A J&T Express exige o CPF ou CNPJ do destinatário (campo 'document')."
         package.save(update_fields=["last_error"])
         return SyncResult.NO_DOCUMENT
-    params = adapter.build_params(package.tracking_code, package.document)
     try:
-        raw = client.fetch(adapter.host_path, params)
+        raw = client.fetch(adapter.nid, package.tracking_code, package.document)
         SyncLog.increment()
     except PacoteVicioClientError as exc:
-        package.last_error = f"Erro {exc.status_code}: {exc}"
-        if exc.status_code in PERMANENT_CLIENT_ERRORS:
+        package.last_error = f"Erro {exc.status_code} ({exc.code or 'sem código'}): {exc}"
+        if exc.code in PERMANENT_CLIENT_ERROR_CODES:
             package.is_active = False
             package.save(update_fields=["last_error", "is_active", "updated_at"])
         else:
@@ -117,7 +116,7 @@ def sync_package(package: Package, client: PacoteVicioClient | None = None) -> S
         package.last_error = f"Falha temporária: {exc}"
         package.save(update_fields=["last_error"])
         return SyncResult.ERROR
-    normalized = adapter.normalize(raw)
+    normalized = normalize_v1(raw)
     _apply_events(package, normalized)
     return SyncResult.OK
 

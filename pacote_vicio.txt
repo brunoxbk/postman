@@ -1,0 +1,620 @@
+Primeiros passos
+Bem-vindo à API PacoteVício. Este guia leva você da primeira requisição a uma integração pronta para produção.
+
+Integrando com ajuda de um agente de IA? Esta documentação também está disponível em formato para LLMs em /docs/llms.txt — cada artigo é servido como markdown bruto em /docs/{slug}.md.
+
+Pré-requisitos
+Uma conta no portal PacoteVício
+Uma chave de API ativa (acesse Chaves de API no menu)
+Base URL
+https://api.pacotevicio.dev
+Todos os endpoints ficam sob o prefixo de versão /v1.
+
+Sua primeira requisição
+curl https://api.pacotevicio.dev/v1/track/BR123456789BR \
+  -H "X-API-Key: <SUA_CHAVE>"
+{
+  "tracking_code": "BR123456789BR",
+  "courier": "correios",
+  "status": "collected",
+  "status_updated_at": "2026-07-15T13:54:00Z",
+  "service": "REGISTRADO CONVENCIONAL",
+  "origin": null,
+  "destination": null,
+  "estimated_delivery_date": null,
+  "delivered_at": null,
+  "recipient": null,
+  "events": [
+    {
+      "timestamp": "2026-06-12T15:10:00Z",
+      "status": "collected",
+      "description": "Objeto coletado",
+      "location": { "country": "BR", "state": "SP", "city": "Franca", "facility": "Unidade de Distribuição" },
+      "destination": null,
+      "courier_status_code": "CO",
+      "courier_status_label": "Objeto coletado",
+      "detail": null,
+      "comment": null
+    },
+    {
+      "timestamp": "2026-07-15T13:54:00Z",
+      "status": "collected",
+      "description": "Objeto coletado",
+      "location": { "country": "BR", "state": "SP", "city": "Sao Paulo", "facility": "Unidade de Distribuição" },
+      "destination": null,
+      "courier_status_code": "CO",
+      "courier_status_label": "Objeto coletado",
+      "detail": null,
+      "comment": null
+    }
+  ]
+}
+
+
+Não é preciso informar a transportadora: ela é detectada pelo formato do código.
+
+O que você precisa saber antes de integrar
+Três regras evitam a maior parte dos problemas de integração:
+
+Use status, não courier_status_code. O campo status é normalizado e igual para todas as transportadoras. Os campos courier_status_* são o vocabulário bruto da transportadora e mudam sem aviso. Veja Status normalizados.
+
+Trate erros pelo error.code, nunca pela message. O code é contrato; a message existe para humanos e pode ser reescrita. Veja Códigos de erro.
+
+events vem do mais antigo para o mais recente. O evento atual é sempre o último do array — que é de onde status e status_updated_at vêm. No plano Básico, o primeiro item é a atribuição sintética à PacoteVicio.dev; ele não representa uma movimentação da transportadora. É proibido remover, ocultar, alterar ou substituir esse evento ao exibir ou redistribuir os dados. O descumprimento pode suspender ou encerrar a conta e suas chaves de API.
+
+Teste antes de escrever código
+No portal, a página Chaves de API tem a área Testar API: escolha entre Rastrear pacote, Objetos originais (resposta crua da transportadora) e Listar transportadoras. Clique em Enviar requisição. A chamada usa a sua chave real, passa pelos mesmos limites de uma requisição da sua aplicação e mostra status HTTP, tempo de resposta e corpo.
+
+A requisição é real. Se a transportadora responder, ela consome uma unidade da sua cota — veja Cobrança de requisições.
+
+
+Autenticação
+A API PacoteVício usa chaves de API. Gere, visualize e revogue a sua na página Chaves de API do portal.
+
+Mantenha a chave em segredo: ela dá acesso à sua cota. Não a exponha em repositórios públicos nem em código client-side — qualquer pessoa com acesso ao navegador do usuário conseguiria lê-la.
+
+Headers
+Header	Obrigatório	Valor
+X-API-Key	Sim	Sua chave, no formato pv1_…
+X-Tracking-Document	Depende	CPF/CNPJ do destinatário. Obrigatório para J&T Express — veja Transportadoras
+User-Agent	Recomendado	Identificador da sua aplicação, ex.: minha-app/1.0
+Accept não é obrigatório: todas as respostas são application/json; charset=utf-8, independentemente do que você enviar.
+
+Exemplos
+curl https://api.pacotevicio.dev/v1/track/BR123456789BR \
+  -H "X-API-Key: pv1_4f8a92b1c0d6e3f7a8b9c2d4e6f1a3b54f8a92b1c0d6e3f7a8b9c2d4e6f1a3b5" \
+  -H "User-Agent: minha-app/1.0"
+const res = await fetch("https://api.pacotevicio.dev/v1/track/BR123456789BR", {
+  headers: {
+    "X-API-Key": process.env.PV_API_KEY,
+    "User-Agent": "minha-app/1.0",
+  },
+});
+Erros de autenticação e acesso
+Status	code	Significado
+401	missing_api_key	O header X-API-Key não foi enviado
+401	invalid_api_key	A chave é desconhecida ou foi revogada
+403	subscription_inactive	A chave é válida, mas a conta não tem assinatura ativa
+403	account_suspended	A conta foi suspensa; o acesso à API está bloqueado
+403	phone_verification_required	Plano Básico sem telefone verificado
+Nenhuma dessas respostas consome cota.
+
+Se receber 401, confirme que o header está presente e que a chave continua ativa no portal. Ao rotacionar uma chave, a anterior é revogada imediatamente.
+
+Rastreando um problema
+Toda resposta traz o header X-Request-Id, repetido em error.request_id no corpo dos erros. Registre esse valor nos seus logs: com ele conseguimos localizar a requisição exata no nosso lado.
+
+{
+  "error": {
+    "code": "invalid_api_key",
+    "message": "Chave de API inválida ou revogada.",
+    "request_id": "0ebcea5b-1727-4bf9-af88-4deb11b438f2"
+  }
+}
+
+
+Limites de uso
+Cada plano tem dois limites independentes: uma cota de requisições por período de cobrança e um limite por minuto (burst). O período reinicia a cada renovação da assinatura.
+
+Limites por plano
+Plano	Requisições/período	Limite por minuto
+Básico	1.000	10 req/min
+Pro	10.000	30 req/min
+Ultra	30.000	60 req/min
+Turbo	100.000	90 req/min
+Mega	300.000	120 req/min
+A cota conta apenas requisições cobradas — veja Cobrança de requisições. Pacotes de requisições e créditos extras concedidos aumentam a cota do período atual; eles expiram quando esse período termina e não passam para a renovação ou para um plano ativado imediatamente. O limite por minuto conta tentativas e não aumenta com créditos extras. Enquanto houver créditos extras, as chamadas cobradas usam esse saldo primeiro; a cota própria do plano começa a ser consumida depois. Tentativas rejeitadas também podem contar para o limite por minuto.
+
+Headers de limite
+Depois que a chave e o plano são identificados, a resposta informa o estado das políticas do plano:
+
+RateLimit-Policy: "burst";q=30;w=60, "quota";q=5000;w=2592000
+RateLimit: "burst";r=27;t=41, "quota";r=4318;t=1209600
+RateLimit-Limit: 30
+RateLimit-Remaining: 27
+RateLimit-Reset: 41
+Campo	Significado
+q	Limite configurado da política
+w	Janela da política, em segundos
+r	Quanto ainda resta
+t	Segundos até reiniciar
+RateLimit-Limit, -Remaining e -Reset repetem a política burst no formato antigo, para clientes que não interpretam campos estruturados. Algumas respostas de erro não trazem esses headers. Em caso de 429, siga o Retry-After. Se um erro ocorrer antes da verificação da cota, os headers podem mostrar apenas o limite por minuto.
+
+O valor q da política quota já inclui os créditos extras disponíveis no período. A contabilização interna desses créditos não reduz esse teto; somente novas requisições cobradas reduzem r.
+
+Planos com cota ilimitada omitem a política quota. A política burst continua sendo aplicada normalmente. Créditos extras continuam sendo consumidos primeiro; depois que acabam, as chamadas seguem pelo plano ilimitado.
+
+Quando o limite é atingido
+Status	code	O que fazer
+429	rate_limit_exceeded	Aguarde o Retry-After (em segundos) e repita
+429	quota_exceeded	Faça upgrade do plano ou aguarde a renovação do período
+Nenhuma das duas consome cota.
+
+Limites de transporte
+As rotas públicas atuais aceitam apenas GET, sem corpo. O gateway recusa com 413 payload_too_large qualquer corpo declarado acima de 1 MiB (1.048.576 bytes) e também corpos transmitidos sem um tamanho confiável.
+
+Respostas da transportadora são lidas com limite de 1 MiB depois da descompressão. Uma resposta maior, um redirecionamento inesperado ou uma falha de leitura vira 502 courier_unavailable, não consome cota e nunca é repassada parcialmente. O tempo limite continua valendo até o fim do corpo.
+
+Respeitando os headers
+Melhor do que reagir ao 429 é nunca chegar nele:
+
+async function track(code, key) {
+  const res = await fetch(`https://api.pacotevicio.dev/v1/track/${code}`, {
+    headers: { "X-API-Key": key },
+  });
+
+  if (res.status === 429) {
+    const wait = Number(res.headers.get("Retry-After") ?? 1);
+    await new Promise((r) => setTimeout(r, wait * 1000));
+    return track(code, key);
+  }
+
+  // Desacelere antes de bater no limite.
+  const remaining = Number(res.headers.get("RateLimit-Remaining") ?? Infinity);
+  if (remaining <= 2) {
+    const reset = Number(res.headers.get("RateLimit-Reset") ?? 1);
+    await new Promise((r) => setTimeout(r, reset * 1000));
+  }
+
+  return res;
+}
+Aumentar seus limites
+Acesse Plano e Cobrança no menu do portal.
+
+Pacotes de requisições
+Pacotes de requisições adicionam uma quantidade fixa de chamadas à cota da sua assinatura no período atual. Eles estão disponíveis para assinaturas pagas ativas e não alteram o limite de requisições por minuto.
+
+Validade dos créditos
+Cada pacote é válido somente até o fim do período de cobrança em que foi comprado. A data exata aparece em Plano e Cobrança antes de você seguir para o pagamento.
+
+Créditos não utilizados não passam para a renovação. Eles também não passam para um plano ativado imediatamente durante um upgrade: ao iniciar o novo período, o saldo do período anterior expira.
+
+Comprar um pacote
+Acesse Plano e Cobrança no portal.
+Na seção Créditos extras, escolha um pacote e a quantidade.
+Confira o total de requisições, o preço e a data de validade.
+Siga para o Checkout e pague com Pix ou cartão de crédito.
+O pagamento é uma compra avulsa e não altera o valor recorrente da assinatura. Depois da confirmação, o portal mostra o novo saldo e registra a compra no histórico. Se a confirmação ainda estiver sendo processada, aguarde a atualização antes de iniciar outra compra.
+
+Como os créditos são usados
+As chamadas cobradas usam primeiro os créditos extras disponíveis, incluindo pacotes comprados e créditos concedidos pelo suporte. Quando o saldo acaba, as chamadas passam a usar a cota incluída no plano. Depois que ambos terminam, novas chamadas recebem 429 quota_exceeded até a renovação, um upgrade ou uma nova compra.
+
+Pacotes também podem ser comprados em planos com cota ilimitada. O saldo extra é consumido primeiro e, quando termina, as chamadas continuam pelo plano sem limite de período.
+
+O saldo exibido em Visão Geral e Plano e Cobrança é o restante disponível e diminui assim que uma chamada é reservada nos créditos extras, mesmo antes do processamento assíncrono do histórico de uso.
+
+Consulte Limites de uso para entender a cota do período, o limite por minuto e os headers de acompanhamento.
+
+
+Cobrança de requisições
+Uma regra explica todo o resto:
+
+Você paga quando uma transportadora dá uma resposta definitiva sobre o código rastreado. Nada além disso.
+
+O que consome cota
+Status	code	Situação
+200	—	Resposta da transportadora retornada; em /raw, o payload original pode conter um erro da transportadora
+404	tracking_not_found	A transportadora foi consultada e não tem registro do código
+422	invalid_document	A transportadora recebeu o documento e o recusou
+404 tracking_not_found consome cota porque a consulta foi feita: o trabalho de perguntar à transportadora aconteceu, e a resposta — "não existe registro" — é definitiva e útil.
+
+O que não consome cota
+Requisições rejeitadas antes de qualquer consulta. Chave ausente ou inválida (401), conta sem assinatura ou telefone não verificado (403), endpoint inexistente (404 not_found), método errado (405), código malformado (400 invalid_tracking_code), retry_level inválido (400 invalid_retry_level), transportadora fora do catálogo (400 courier_not_supported), transportadora não identificada (422 courier_not_detected), documento faltando (422 document_required) e limites atingidos (429).
+
+Falhas nossas ou da transportadora. 500, 502, 503 e 504. Não cobramos por indisponibilidade.
+
+Como conferir
+Toda resposta traz o header X-Billable:
+
+X-Billable: true
+Depois que a cota é verificada, o consumo do período aparece no header RateLimit, na política quota:
+
+RateLimit: "burst";r=27;t=41, "quota";r=4318;t=1209600
+Aqui, r=4318 são as requisições ainda disponíveis no período e t=1209600 os segundos até a renovação. Veja Limites de uso.
+
+Em planos com cota ilimitada, a política quota é omitida. O limite por minuto continua aparecendo como burst, quando configurado.
+
+O painel do portal mostra o mesmo número: a barra de uso do plano conta apenas requisições cobradas. Requisições não cobradas continuam visíveis na lista de chamadas recentes — elas ajudam a depurar a integração sem entrar na conta.
+
+Limite por minuto
+Os limites por minuto contam tentativas, inclusive quando a requisição é rejeitada. Isso não consome a cota do período.
+
+Códigos de erro
+Erros gerados pelo gateway usam o mesmo envelope:
+
+{
+  "error": {
+    "code": "document_required",
+    "message": "A J&T Express exige o documento do destinatário no header X-Tracking-Document.",
+    "param": "X-Tracking-Document",
+    "courier": "jtexpress",
+    "doc_url": "{PUBLIC_APP_URL}/?docs=errors#document_required",
+    "request_id": "0ebcea5b-1727-4bf9-af88-4deb11b438f2"
+  }
+}
+Campo	Sempre presente	Descrição
+code	Sim	Identificador estável. É nele que sua aplicação deve decidir.
+message	Sim	Texto legível em português. Pode ser reescrito a qualquer momento — não compare esta string.
+request_id	Sim	Igual ao header X-Request-Id. Cite ao abrir um chamado.
+param	Não	Parâmetro, segmento de rota ou header que causou o erro
+courier	Não	Transportadora envolvida, quando houver
+doc_url	Não	Link direto para a seção correspondente no portal público
+Nas rotas normalizadas, erros não chegam com status 2xx. Nas rotas /raw, o payload original pode conter um erro da transportadora mesmo com HTTP 200; nesse caso ele não usa este envelope. Verifique o formato da transportadora antes de tratar res.ok como rastreamento encontrado. Veja Resposta crua.
+
+Lista completa
+Status	code	Quando acontece	Consome cota
+400	invalid_request	Requisição malformada que nenhum outro código descreve, incluindo caminho acima de 1.024 caracteres	Não
+400	invalid_tracking_code	Código informado acima de 40 caracteres, com caracteres inválidos (inclusive espaços) ou fora do formato aceito pela transportadora	Não
+400	invalid_retry_level	retry_level fora de low, medium, high	Não
+400	courier_not_supported	Slug de transportadora fora do catálogo	Não
+401	missing_api_key	Header X-API-Key ausente	Não
+401	invalid_api_key	Chave desconhecida ou revogada	Não
+403	subscription_inactive	Sem assinatura ativa	Não
+403	account_suspended	A conta foi suspensa. Entre em contato com o suporte	Não
+403	phone_verification_required	Plano Básico sem telefone verificado	Não
+404	not_found	O caminho não é um endpoint da API, inclusive /v1/track/ sem o segmento do código	Não
+404	tracking_not_found	A transportadora foi consultada e não tem registro do código	Sim
+405	method_not_allowed	O endpoint existe, mas aceita apenas GET	Não
+413	payload_too_large	Corpo acima de 1 MiB (1.048.576 bytes) ou sem tamanho confiável	Não
+422	courier_not_detected	Código bem formado que não corresponde a nenhuma transportadora suportada	Não
+422	document_required	Requisição J&T Express sem X-Tracking-Document	Não
+422	invalid_document	Reservado para quando a transportadora identificar que recusou o documento	Sim
+429	rate_limit_exceeded	Limite por minuto atingido. Traz Retry-After	Não
+429	quota_exceeded	Cota do período esgotada	Não
+500	internal_error	Falha nossa	Não
+502	courier_unavailable	Transportadora indisponível ou com resposta ininterpretável	Não
+503	service_unavailable	Nosso serviço degradado. Traz Retry-After	Não
+504	courier_timeout	O orçamento de tempo do retry_level se esgotou	Não
+Detalhes de cobrança em Cobrança de requisições.
+
+Como interpretar cada família
+4xx — algo na requisição precisa mudar. Repetir sem alteração produz o mesmo erro. As exceções são 429 (espere) e 404 tracking_not_found (o código pode passar a existir mais tarde).
+5xx — o problema é nosso ou da transportadora, e nenhuma delas é cobrada. Repetir mais tarde é razoável.
+Tratamento recomendado para rotas normalizadas
+const res = await fetch(url, { headers: { "X-API-Key": key } });
+
+if (res.ok) {
+  return res.json();
+}
+
+const { error } = await res.json();
+
+switch (error.code) {
+  case "tracking_not_found":
+    return null;                                   // sem informação para este código
+
+  case "courier_not_detected":
+    throw new Error("Informe a transportadora na rota para este código.");
+
+  case "document_required":
+    throw new Error("Reenvie com o header X-Tracking-Document.");
+
+  case "rate_limit_exceeded": {
+    const wait = Number(res.headers.get("Retry-After") ?? 1);
+    await sleep(wait * 1000);
+    return retry();
+  }
+
+  case "quota_exceeded":
+    throw new Error("Cota do período esgotada — faça upgrade do plano.");
+
+  case "account_suspended":
+    // Repetir não resolve: só a remoção da suspensão restabelece o acesso.
+    throw new Error("Conta suspensa — entre em contato com o suporte.");
+
+  case "courier_unavailable":
+  case "courier_timeout":
+  case "service_unavailable":
+    return retryLater();                           // falha temporária, não é cobrada
+
+  default:
+    throw new Error(`${error.code}: ${error.message} (${error.request_id})`);
+}
+Compatibilidade
+Novos code podem ser adicionados sem aviso. Sempre tenha um caminho default que trate pelo status HTTP — um code desconhecido nunca deve derrubar sua integração.
+
+
+GET /v1/track/:tracking_code
+Consulta o rastreamento de um objeto. A transportadora é detectada pelo formato do código, ou informada por você na rota.
+
+Variações de rota
+Rota	Descrição
+GET /v1/track/{tracking_code}	Detecção automática, resposta normalizada
+GET /v1/track/{tracking_code}/raw	Detecção automática, payload original da transportadora
+GET /v1/track/{courier}/{tracking_code}	Transportadora forçada, resposta normalizada
+GET /v1/track/{courier}/{tracking_code}/raw	Transportadora forçada, payload original
+Parâmetros de rota
+Parâmetro	Descrição
+tracking_code	De 1 a 40 caracteres, apenas letras, números e hífen. Espaços, inclusive nas extremidades, e códigos incompatíveis com a transportadora informada retornam 400 invalid_tracking_code.
+courier	Slug do catálogo — veja Transportadoras. Fora dele: 400 courier_not_supported
+O segmento tracking_code é obrigatório. Sem ele, /v1/track/ não corresponde a uma rota e retorna 404 not_found, sem cobrança.
+
+Query parameters
+Parâmetro	Obrigatório	Padrão	Valores
+retry_level	Não	high	low, medium, high
+retry_level controla quanto tempo insistimos antes de desistir. Rastreamento depende de sistemas de terceiros que falham de forma intermitente; níveis mais altos toleram mais falhas temporárias, ao custo de latência.
+
+Nível	Orçamento de tempo	Prazo máximo antes do 504
+low	10 s	15 s
+medium	20 s	25 s
+high	45 s	50 s
+Escolha pelo tempo que a sua aplicação pode esperar. Para uma tela que o usuário está olhando, low ou medium. Para um job em segundo plano, high.
+
+Um valor fora da lista responde 400 invalid_retry_level, sem consumir cota.
+
+Headers
+Header	Quando	Descrição
+X-Tracking-Document	J&T Express	CPF/CNPJ do destinatário, apenas dígitos
+Veja Transportadoras para as regras completas.
+
+Headers de resposta
+Header	Descrição
+X-Courier	Transportadora que respondeu — essencial nas rotas /raw com detecção automática
+X-Billable	Se esta requisição consumiu cota
+X-Request-Id	Identificador da requisição
+RateLimit, RateLimit-Policy	Estado dos limites — veja Limites de uso
+Resposta normalizada
+{
+  "tracking_code": "BR123456789BR",
+  "courier": "correios",
+  "status": "collected",
+  "status_updated_at": "2026-07-15T13:54:00Z",
+  "service": "REGISTRADO CONVENCIONAL",
+  "origin": null,
+  "destination": null,
+  "estimated_delivery_date": null,
+  "delivered_at": null,
+  "recipient": null,
+  "events": [
+    {
+      "timestamp": "2026-06-12T15:10:00Z",
+      "status": "collected",
+      "description": "Objeto coletado",
+      "location": { "country": "BR", "state": "SP", "city": "Franca", "facility": "Unidade de Distribuição" },
+      "destination": null,
+      "courier_status_code": "CO",
+      "courier_status_label": "Objeto coletado",
+      "detail": null,
+      "comment": null
+    },
+    {
+      "timestamp": "2026-07-15T13:54:00Z",
+      "status": "collected",
+      "description": "Objeto coletado",
+      "location": { "country": "BR", "state": "SP", "city": "Sao Paulo", "facility": "Unidade de Distribuição" },
+      "destination": null,
+      "courier_status_code": "CO",
+      "courier_status_label": "Objeto coletado",
+      "detail": null,
+      "comment": null
+    }
+  ]
+}
+Campo	Tipo	Descrição
+tracking_code	string	O código consultado
+courier	string	Slug da transportadora que respondeu
+status	string	Status normalizado atual — veja Status normalizados
+status_updated_at	string | null	Timestamp do evento mais recente
+service	string | null	Serviço ou modalidade informado pela transportadora
+origin, destination	objeto | null	country, state, city, name
+estimated_delivery_date	string | null	Previsão de entrega, YYYY-MM-DD, sem fuso
+delivered_at	string | null	Momento da entrega
+recipient	objeto | null	name, signed_by
+events	array	Histórico, do mais antigo para o mais recente
+Campos de evento:
+
+Campo	Tipo	Descrição
+timestamp	string	RFC 3339 em UTC (Z)
+status	string	Status normalizado do evento
+description	string	Descrição legível do evento, que pode ser ajustada a partir dos dados da transportadora; não use como identificador estável
+location	objeto | null	country, state, city, facility
+destination	objeto | null	Destino informado para o evento pela transportadora, com country, state, city, facility; opcional quando ausente no payload de origem
+courier_status_code	string | null	Código bruto da transportadora. Instável
+courier_status_label	string | null	Rótulo bruto da transportadora. Instável
+detail, comment	string | null	Informações complementares
+Descrições e informações complementares podem mudar quando corrigimos a interpretação dos dados da transportadora. Use status para decisões sobre a situação do objeto.
+
+Todos os timestamps são UTC. Objetos ausentes vêm como null, nunca como objetos vazios; strings vazias também viram null. Durante a atualização dos serviços, destination pode estar ausente em respostas da versão anterior.
+
+Atribuição no plano Básico
+Respostas normalizadas de usuários no plano Básico começam com um evento sintético um segundo anterior ao primeiro evento real:
+
+{
+  "timestamp": "2026-02-24T18:51:28Z",
+  "status": "unknown",
+  "description": "Rastreio fornecido por PacoteVicio.dev",
+  "location": null,
+  "destination": null,
+  "courier_status_code": null,
+  "courier_status_label": null,
+  "detail": null,
+  "comment": null
+}
+Esse evento não veio da transportadora e não altera status nem status_updated_at, que continuam representando o evento real mais recente. Ele também aparece quando créditos extras financiam a chamada de um usuário Básico. Planos pagos e respostas /raw não recebem a atribuição.
+
+Atribuição obrigatória: é proibido remover, ocultar, alterar ou substituir esse evento ao exibir ou redistribuir dados de rastreamento obtidos com o plano Básico. O descumprimento pode resultar na suspensão ou no encerramento da conta e de suas chaves de API.
+
+Código sem informação
+Nas rotas normalizadas, se a transportadora não encontra o código, a resposta é 404 tracking_not_found — e é cobrada, porque a consulta foi feita. Nas rotas /raw, a transportadora pode informar a ausência no próprio payload; veja abaixo.
+
+Resposta crua (/raw)
+As rotas /raw devolvem o payload exato da transportadora, sem normalização. Use quando você já processa o formato original — por exemplo, ao migrar de uma integração direta.
+
+Três avisos:
+
+Sem garantia de compatibilidade. Transportadoras mudam esses payloads sem avisar, e nós repassamos a mudança.
+O formato varia por transportadora. Confira o header X-Courier antes de interpretar o corpo.
+O payload bruto pode conter um erro da transportadora. Nesse caso a resposta pode ser 200 com o erro no formato original, sem o envelope da PacoteVício. Por exemplo, Correios pode responder {"erro":true,"mensagem":"..."} quando não encontra o código. A consulta continua cobrada. Erros gerados pelo gateway, como chave inválida ou limite atingido, usam o envelope de Códigos de erro.
+curl https://api.pacotevicio.dev/v1/track/correios/BR123456789BR/raw \
+  -H "X-API-Key: pv1_..."
+{
+  "codObjeto": "BR123456789BR",
+  "tipoPostal": { "sigla": "BR", "descricao": "ETIQUETA FIS REGIST URG", "categoria": "REGISTRADO CONVENCIONAL", "tipo": "N" },
+  "dtPrevista": "",
+  "eventos": [
+    {
+      "codigo": "CO",
+      "tipo": "01",
+      "dtHrCriado": { "date": "2026-07-15 10:54:00.000000", "timezone_type": 3, "timezone": "America/Sao_Paulo" },
+      "descricao": "Objeto coletado",
+      "unidade": { "codSro": "01327970", "tipo": "Unidade de Distribuição", "endereco": { "cidade": "Sao Paulo", "uf": "SP" } },
+      "descricaoFrontEnd": "Objeto coletado",
+      "finalizador": "N"
+    }
+  ],
+  "situacao": "T"
+}
+O exemplo acima é ilustrativo e parcial: o payload real dos Correios traz vários outros campos, e outras transportadoras têm estruturas completamente diferentes.
+
+Detecção automática
+Sem courier na rota, a transportadora é identificada pelo formato do código. Se nenhuma transportadora suportada corresponder, a resposta é 422 courier_not_detected, que não é cobrada — nenhuma consulta foi feita.
+
+Alguns formatos são ambíguos entre transportadoras. Quando isso acontece, consultamos as candidatas em sequência, o que aumenta o tempo de resposta. Se você já sabe a transportadora, force-a na rota: é mais rápido e determinístico.
+
+
+GET /v1/couriers
+Retorna o catálogo de transportadoras suportadas. É a lista autoritativa: todo id aqui funciona como parâmetro de rota, e nenhum id fora dela é aceito.
+
+Este endpoint é respondido pelo próprio gateway. Não consulta transportadora, não consome cota e não é cobrado.
+
+Requisição
+curl https://api.pacotevicio.dev/v1/couriers \
+  -H "X-API-Key: pv1_..."
+Resposta
+{
+  "data": [
+    { "id": "correios",     "name": "Correios",      "required_headers": [] },
+    { "id": "aliexpress",   "name": "AliExpress",    "required_headers": [] },
+    { "id": "anjun",        "name": "Anjun",         "required_headers": [] },
+    { "id": "shopee",       "name": "Shopee",        "required_headers": [] },
+    { "id": "jtexpress",    "name": "J&T Express",   "required_headers": ["X-Tracking-Document"] },
+    { "id": "totalexpress", "name": "Total Express", "required_headers": [] }
+  ]
+}
+Campo	Descrição
+id	Slug estável. Use como parâmetro de rota: /v1/track/correios/BR123456789BR
+name	Nome de exibição. Nunca use em URLs
+required_headers	Headers obrigatórios para esta transportadora
+AliExpress
+Use aliexpress. Internamente esses envios são operados pela Cainiao, mas esse nome não aparece na API: tanto na rota quanto no campo courier da resposta o valor é sempre aliexpress.
+
+J&T Express
+jtexpress exige o header X-Tracking-Document com o CPF ou CNPJ do destinatário (apenas dígitos, 11 ou 14 caracteres).
+
+curl https://api.pacotevicio.dev/v1/track/jtexpress/888030556767025 \
+  -H "X-API-Key: pv1_..." \
+  -H "X-Tracking-Document: 12345678901"
+Sem o header, a resposta é 422 document_required — e não é cobrada. Em rotas com detecção automática, envie o header preventivamente se o código puder ser da J&T: a exigência só é descoberta depois que a transportadora é identificada. O header é ignorado pelas demais transportadoras. Na detecção automática, um documento malformado é tratado como ausente.
+
+Ambiguidade entre slug e código
+O primeiro segmento depois de /v1/track/ é lido como transportadora somente se estiver no catálogo. Ou seja, /v1/track/correios/raw significa "Correios, código de rastreamento raw" — e não "detecção automática, resposta crua".
+
+Novas transportadoras
+O catálogo cresce ao longo do tempo. Consulte este endpoint em vez de manter uma lista fixa no seu código.
+
+
+Status normalizados
+Cada transportadora tem seu próprio vocabulário. O campo status traduz os eventos para um único conjunto de valores, para que sua aplicação não precise conhecer nenhuma transportadora em particular.
+
+status aparece em dois lugares: no topo da resposta (a situação atual do objeto) e em cada item de events (a situação naquele momento).
+
+Valores
+status	Significado
+pending	Etiqueta emitida, ainda sem movimentação
+collected	Coletado do remetente ou postado
+in_transit	Em trânsito pela rede da transportadora
+out_for_delivery	Com o entregador, saiu para entrega
+available_for_pickup	Aguardando retirada em um ponto
+tax	Aguardando pagamento de tributo ou revisão tributária
+delivered	Entregue
+exception	Tentativa falha, problema aduaneiro, avaria ou problema de endereço
+returned	Devolvido ao remetente
+unknown	O status ainda não tem tradução ou o item é a atribuição sintética do plano Básico
+unknown não é erro
+Em um evento da transportadora, unknown significa que o evento existe e é real, mas ainda não mapeamos aquele código específico. Os campos courier_status_code e courier_status_label continuam disponíveis com o valor bruto — dá para inspecionar e, se for relevante para o seu caso, nos avisar para incluirmos no mapeamento.
+
+A exceção é o primeiro evento das respostas do plano Básico. Ele tem a descrição Rastreio fornecido por PacoteVicio.dev, usa unknown e deixa os campos da transportadora como null, porque é uma atribuição sintética e não uma movimentação do objeto. O status no topo da resposta não é afetado.
+
+Compatibilidade
+Novos valores podem ser adicionados sem aviso. Trate qualquer valor desconhecido como unknown:
+
+const KNOWN = new Set([
+  "pending", "collected", "in_transit", "out_for_delivery",
+  "available_for_pickup", "tax", "delivered", "exception", "returned", "unknown",
+]);
+
+const status = KNOWN.has(pacote.status) ? pacote.status : "unknown";
+Em TypeScript, evite switch exaustivo sem default:
+
+switch (pacote.status) {
+  case "delivered": return "Entregue";
+  case "out_for_delivery": return "Saiu para entrega";
+  case "exception": return "Problema na entrega";
+  default: return "Em andamento";   // sempre tenha este caminho
+}
+Campos brutos da transportadora
+courier_status_code e courier_status_label são passthrough: vêm da transportadora sem tradução, variam entre transportadoras e mudam sem aviso. Use-os para exibição, depuração ou registro — nunca como base de lógica de negócio. Para isso existe o status.
+
+Como o status do topo é calculado
+O status no topo da resposta é o status do evento mais recente, ou seja, o último item de events — que vem ordenado do mais antigo para o mais recente. A única exceção: se delivered_at estiver preenchido, o status é delivered.
+
+
+# PacoteVício API
+
+> API pública de rastreamento de encomendas de múltiplas transportadoras brasileiras e
+> internacionais. Uma única requisição consulta a transportadora e devolve o histórico do
+> objeto — com detecção automática da transportadora pelo formato do código.
+
+Base URL: `https://api.pacotevicio.dev`. Todos os endpoints ficam sob `/v1`. Autenticação via
+header `X-API-Key` (formato `pv1_...`). Respostas são sempre JSON; erros nunca chegam com status
+`2xx`. Trate o campo `error.code` (estável, em inglês) — nunca a `message` (em português, para
+humanos). Campos e parâmetros usam `snake_case`; timestamps são RFC 3339 em UTC.
+
+## Docs
+
+- [Primeiros passos](https://api.pacotevicio.dev/docs/getting-started.md): pré-requisitos, base
+  URL, primeira requisição e as três regras que evitam a maioria dos erros de integração.
+- [Autenticação](https://api.pacotevicio.dev/docs/authentication.md): header `X-API-Key`,
+  `X-Tracking-Document` (obrigatório para J&T Express) e os erros 401/403 relacionados.
+- [Limites de uso](https://api.pacotevicio.dev/docs/rate-limits.md): cota e burst por plano, e
+  os headers `RateLimit`/`RateLimit-Policy`.
+- [Pacotes de requisições](https://api.pacotevicio.dev/docs/request-packages.md): créditos
+  avulsos pré-pagos, validade e ordem de consumo frente à cota do plano.
+- [Cobrança de requisições](https://api.pacotevicio.dev/docs/billing.md): quais respostas
+  consomem cota (200 e 404 tracking_not_found), quais não consomem e o status
+  reservado `invalid_document`.
+- [Códigos de erro](https://api.pacotevicio.dev/docs/errors.md): o envelope de erro (`code`,
+  `message`, `param`, `courier`, `doc_url`, `request_id`) e a tabela completa de códigos.
+
+## Endpoints
+
+- [GET /v1/track/:tracking_code](https://api.pacotevicio.dev/docs/tracking-get.md): rastreamento
+  com detecção automática ou transportadora forçada, variantes normalizada e `/raw`, parâmetro
+  `retry_level`.
+- [GET /v1/couriers](https://api.pacotevicio.dev/docs/couriers.md): catálogo de transportadoras
+  suportadas — endpoint não cobrado, servido pelo próprio gateway.
+
+## Referência
+
+- [Status normalizados](https://api.pacotevicio.dev/docs/normalized-status.md): o enum
+  unificado de `status` que substitui o vocabulário específico de cada transportadora.

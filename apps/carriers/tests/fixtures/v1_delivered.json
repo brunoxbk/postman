@@ -1,0 +1,47 @@
+{
+  "tracking_code": "AM101610575BR",
+  "courier": "correios",
+  "status": "delivered",
+  "status_updated_at": "2026-07-20T10:00:00Z",
+  "service": "SEDEX",
+  "origin": null,
+  "destination": { "country": "BR", "state": "SP", "city": "Franca", "name": null },
+  "estimated_delivery_date": "2026-07-20",
+  "delivered_at": "2026-07-20T10:00:00Z",
+  "recipient": { "name": "Bruno", "signed_by": "BRUNO" },
+  "events": [
+    {
+      "timestamp": "2026-07-14T18:51:28Z",
+      "status": "unknown",
+      "description": "Rastreio fornecido por PacoteVicio.dev",
+      "location": null,
+      "destination": null,
+      "courier_status_code": null,
+      "courier_status_label": null,
+      "detail": null,
+      "comment": null
+    },
+    {
+      "timestamp": "2026-07-15T13:54:00Z",
+      "status": "collected",
+      "description": "Objeto coletado",
+      "location": { "country": "BR", "state": "SP", "city": "Franca", "facility": "Unidade de Distribuição" },
+      "destination": null,
+      "courier_status_code": "CO",
+      "courier_status_label": "Objeto coletado",
+      "detail": null,
+      "comment": null
+    },
+    {
+      "timestamp": "2026-07-20T10:00:00Z",
+      "status": "delivered",
+      "description": "Objeto entregue ao destinatário",
+      "location": { "country": "BR", "state": "SP", "city": "Franca", "facility": null },
+      "destination": null,
+      "courier_status_code": "BDE",
+      "courier_status_label": "Entregue",
+      "detail": null,
+      "comment": null
+    }
+  ]
+}

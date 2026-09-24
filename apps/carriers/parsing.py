@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 PT_BR_TZ = ZoneInfo("America/Sao_Paulo")
@@ -8,7 +8,11 @@ _DMY_WITH_WS = ["%d-%m-%Y %H:%M:%S"]
 
 
 def parse_datetime(value):
-    """Converte formatos comuns dos carriers para datetime aware (fuso America/Sao_Paulo)."""
+    """Converte formatos comuns dos carriers para datetime aware (fuso America/Sao_Paulo).
+
+    Timestamps ISO (com T) do PacoteVício são RFC 3339 em UTC: o sufixo 'Z' é aceito,
+    offsets explícitos são preservados e valores sem fuso são assumidos como UTC.
+    """
     if value is None or value == "":
         return None
     if isinstance(value, (int, float)):
@@ -28,10 +32,14 @@ def parse_datetime(value):
         except ValueError:
             continue
     if "T" in text:
+        text = text.replace("Z", "+00:00", 1) if text.endswith("Z") else text
         try:
-            return datetime.fromisoformat(text)
+            dt = datetime.fromisoformat(text)
         except ValueError:
             return None
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt
     return None
 
 

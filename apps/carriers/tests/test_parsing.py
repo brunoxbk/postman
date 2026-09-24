@@ -35,6 +35,20 @@ class ParsingTestCase(SimpleTestCase):
         out = to_aware(datetime(2025, 3, 3, 23, 30, 3))
         self.assertEqual(out.utcoffset().total_seconds(), -3 * 3600)
 
+    def test_rfc3339_z_utc(self):
+        dt = parse_datetime("2026-07-15T13:54:00Z")
+        self.assertIsNotNone(dt)
+        self.assertEqual(dt.utcoffset().total_seconds(), 0)
+        self.assertEqual(dt.hour, 13)
+
+    def test_rfc3339_naive_assumed_utc(self):
+        dt = parse_datetime("2026-07-15T13:54:00")
+        self.assertEqual(dt.utcoffset().total_seconds(), 0)
+
+    def test_rfc3339_explicit_offset(self):
+        dt = parse_datetime("2026-07-15T13:54:00+02:00")
+        self.assertEqual(dt.utcoffset().total_seconds(), 2 * 3600)
+
     def test_date_dmy(self):
         self.assertEqual(parse_date("20/03/2025").isoformat(), "2025-03-20")
 

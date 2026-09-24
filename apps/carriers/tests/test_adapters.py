@@ -3,7 +3,13 @@ from pathlib import Path
 
 from django.test import SimpleTestCase
 
-from apps.carriers.adapters import ADAPTERS, detect_carrier, get_adapter, is_plausible_code
+from apps.carriers.adapters import (
+    ADAPTERS,
+    detect_carrier,
+    get_adapter,
+    is_plausible_code,
+    normalize_v1,
+)
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -19,56 +25,8 @@ class AdaptersTestCase(SimpleTestCase):
             set(ADAPTERS.keys()),
         )
 
-    def test_correios_normalize(self):
-        raw = load("correios.json")
-        n = get_adapter("correios").normalize(raw)
-        self.assertEqual(n.tracking_code, "AM101610575BR")
-        self.assertTrue(n.is_terminal)
-        self.assertEqual(n.terminal_state, "delivered")
-        self.assertEqual(n.status_label, "ENTREGUE")
-        self.assertEqual(len(n.events), 2)
-        self.assertEqual(n.events[0].status_key, "BDE")
-
-    def test_correios_non_terminal_has_no_terminal_state(self):
-        raw = load("correios.json")
-        raw["situacao"] = "C"
-        for ev in raw["eventos"]:
-            ev["finalizador"] = "N"
-        n = get_adapter("correios").normalize(raw)
-        self.assertFalse(n.is_terminal)
-        self.assertIsNone(n.terminal_state)
-
-    def test_aliexpress_normalize(self):
-        n = get_adapter("aliexpress").normalize(load("aliexpress.json"))
-        self.assertIsNotNone(n.last_event_at)
-        self.assertIsNotNone(n.estimated_delivery)
-
-    def test_shopee_normalize(self):
-        n = get_adapter("shopee").normalize(load("shopee.json"))
-        self.assertEqual(n.status_code, "Delivered")
-        self.assertTrue(n.is_terminal)
-        self.assertEqual(n.terminal_state, "delivered")
-        self.assertEqual(len(n.events), 8)
-
-    def test_anjun_normalize(self):
-        n = get_adapter("anjun").normalize(load("anjun.json"))
-        self.assertEqual(n.tracking_code, "AJ250101341570001")
-        self.assertTrue(n.is_terminal)
-        self.assertEqual(n.terminal_state, "delivered")
-
-    def test_jtexpress_normalize(self):
-        n = get_adapter("jtexpress").normalize(load("jtexpress.json"))
-        self.assertEqual(n.status_code, "100")
-        self.assertTrue(n.is_terminal)
-        self.assertEqual(n.terminal_state, "delivered")
-
-    def test_totalexpress_normalize(self):
-        n = get_adapter("totalexpress").normalize(load("totalexpress.json"))
-        self.assertEqual(n.tracking_code, "AMZB901884819tx")
-        self.assertTrue(n.is_terminal)
-        self.assertEqual(n.terminal_state, "delivered")
-        self.assertEqual(len(n.events), 7)
-        self.assertEqual(n.estimated_delivery.isoformat(), "2026-03-23")
+    def test_jt_requires_document(self):
+        self.assertTrue(get_adapter("jtexpress").requires_document)
 
     def test_detect(self):
         cases = [
@@ -90,11 +48,58 @@ class AdaptersTestCase(SimpleTestCase):
             self.assertFalse(is_plausible_code(code), code)
 
 
-class JTAdapterTestCase(SimpleTestCase):
-    def test_requires_document(self):
-        self.assertTrue(get_adapter("jtexpress").requires_document)
+class NormalizeV1TestCase(SimpleTestCase):
+    def test_delivered_is_terminal(self):
+        n = normalize_v1(load("v1_delivered.json"))
+        self.assertEqual(n.tracking_code, "AM101610575BR")
+        self.assertEqual(n.status_code, "delivered")
+        self.assertEqual(n.status_label, "Entregue")
+        self.assertTrue(n.is_terminal)
+        self.assertEqual(n.terminal_state, "delivered")
+        self.assertEqual(len(n.events), 3)
+        self.assertEqual(n.events[-1].status_key, "delivered")
+        self.assertEqual(n.events[-1].status_label, "Entregue")
+        self.assertEqual(n.estimated_delivery.isoformat(), "2026-07-20")
+        self.assertIsNotNone(n.last_event_at)
 
-    def test_build_params_with_document(self):
-        params = get_adapter("jtexpress").build_params("888030556767025", "12345678901")
-        self.assertEqual(params["document"], "12345678901")
-        self.assertEqual(params["tracking_code"], "888030556767025")
+    def test_keeps_synthetic_attribution_event(self):
+        n = normalize_v1(load("v1_delivered.json"))
+        first = n.events[0]
+        self.assertEqual(first.status_key, "unknown")
+        self.assertEqual(first.status_label, "Rastreio fornecido por PacoteVicio.dev")
+        self.assertEqual(first.location, "")
+
+    def test_in_transit_not_terminal(self):
+        n = normalize_v1(load("v1_in_transit.json"))
+        self.assertFalse(n.is_terminal)
+        self.assertIsNone(n.terminal_state)
+        self.assertEqual(n.status_code, "in_transit")
+        self.assertEqual(n.estimated_delivery.isoformat(), "2026-08-15")
+        self.assertEqual(n.location, "Sao Paulo / SP")
+
+    def test_location_builds_from_location_object(self):
+        n = normalize_v1(load("v1_in_transit.json"))
+        self.assertEqual(n.location, "Sao Paulo / SP")
+
+    def test_exception_is_not_terminal(self):
+        n = normalize_v1(load("v1_exception.json"))
+        self.assertFalse(n.is_terminal)
+        self.assertIsNone(n.terminal_state)
+        self.assertEqual(n.events[-1].status_key, "exception")
+
+    def test_returned_is_terminal_returned(self):
+        raw = load("v1_delivered.json")
+        raw["status"] = "returned"
+        raw["delivered_at"] = None
+        raw["status_updated_at"] = "2026-07-22T09:00:00Z"
+        n = normalize_v1(raw)
+        self.assertTrue(n.is_terminal)
+        self.assertEqual(n.terminal_state, "returned")
+
+    def test_empty_payload_is_not_terminal(self):
+        n = normalize_v1({
+            "tracking_code": "X", "courier": "correios", "status": "unknown",
+            "status_updated_at": None, "events": [],
+        })
+        self.assertFalse(n.is_terminal)
+        self.assertEqual(n.events, [])

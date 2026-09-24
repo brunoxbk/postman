@@ -29,7 +29,7 @@ class Package(models.Model):
     document = models.CharField(
         max_length=16,
         blank=True,
-        help_text="CPF somente dígitos (obrigatório p/ J&T)",
+        help_text="CPF ou CNPJ somente dígitos (obrigatório p/ J&T)",
     )
     status_code = models.CharField(max_length=64, blank=True)
     status_label = models.CharField(max_length=255, blank=True)

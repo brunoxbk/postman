@@ -1,0 +1,36 @@
+{
+  "tracking_code": "BR2561249217932",
+  "courier": "shopee",
+  "status": "exception",
+  "status_updated_at": "2026-09-01T18:40:00Z",
+  "service": null,
+  "origin": null,
+  "destination": { "country": "BR", "state": "MG", "city": "Belo Horizonte", "name": null },
+  "estimated_delivery_date": "2026-09-03",
+  "delivered_at": null,
+  "recipient": null,
+  "events": [
+    {
+      "timestamp": "2026-08-28T06:00:00Z",
+      "status": "unknown",
+      "description": "Rastreio fornecido por PacoteVicio.dev",
+      "location": null,
+      "destination": null,
+      "courier_status_code": null,
+      "courier_status_label": null,
+      "detail": null,
+      "comment": null
+    },
+    {
+      "timestamp": "2026-09-01T18:40:00Z",
+      "status": "exception",
+      "description": "Tentativa de entrega não efetuada — destinatário ausente",
+      "location": { "country": "BR", "state": "MG", "city": "Belo Horizonte", "facility": null },
+      "destination": null,
+      "courier_status_code": "EXC",
+      "courier_status_label": "Tentativa de entrega não efetuada",
+      "detail": null,
+      "comment": "Destinatário ausente"
+    }
+  ]
+}

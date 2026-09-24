@@ -1,0 +1,47 @@
+{
+  "tracking_code": "LP00123456789CN",
+  "courier": "aliexpress",
+  "status": "in_transit",
+  "status_updated_at": "2026-08-10T09:15:00Z",
+  "service": null,
+  "origin": { "country": "CN", "state": null, "city": "Shenzhen", "name": null },
+  "destination": { "country": "BR", "state": "SP", "city": "Sao Paulo", "name": null },
+  "estimated_delivery_date": "2026-08-15",
+  "delivered_at": null,
+  "recipient": null,
+  "events": [
+    {
+      "timestamp": "2026-08-01T08:00:00Z",
+      "status": "unknown",
+      "description": "Rastreio fornecido por PacoteVicio.dev",
+      "location": null,
+      "destination": null,
+      "courier_status_code": null,
+      "courier_status_label": null,
+      "detail": null,
+      "comment": null
+    },
+    {
+      "timestamp": "2026-08-02T10:30:00Z",
+      "status": "collected",
+      "description": "Coletado no centro de distribuição",
+      "location": { "country": "CN", "state": null, "city": "Shenzhen", "facility": "Center" },
+      "destination": null,
+      "courier_status_code": "LP001",
+      "courier_status_label": "Shipment picked up",
+      "detail": null,
+      "comment": null
+    },
+    {
+      "timestamp": "2026-08-10T09:15:00Z",
+      "status": "in_transit",
+      "description": "Em trânsito internacional",
+      "location": { "country": "BR", "state": "SP", "city": "Sao Paulo", "facility": "Unidade Internacional" },
+      "destination": null,
+      "courier_status_code": "LP002",
+      "courier_status_label": "In transit",
+      "detail": null,
+      "comment": null
+    }
+  ]
+}

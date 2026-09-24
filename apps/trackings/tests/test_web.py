@@ -162,6 +162,28 @@ class WebTestCase(TestCase):
         self.assertContains(resp, "Não foi possível identificar a transportadora pelo código.")
         self.assertFalse(Package.objects.filter(tracking_code="MULTIMETRO").exists())
 
+    def test_create_accepts_cnpj_for_jt(self):
+        self.login()
+        resp = self.client.post("/packages/new/", {
+            "tracking_code": "888030556767025",
+            "carrier": "jtexpress",
+            "document": "12345678000195",
+        })
+        self.assertEqual(resp.status_code, 302)
+        p = Package.objects.get(tracking_code="888030556767025")
+        self.assertEqual(p.document, "12345678000195")
+
+    def test_create_rejects_wrong_size_document_for_jt(self):
+        self.login()
+        resp = self.client.post("/packages/new/", {
+            "tracking_code": "888030556767025",
+            "carrier": "jtexpress",
+            "document": "1234567890",
+        })
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "CPF")
+        self.assertFalse(Package.objects.filter(tracking_code="888030556767025").exists())
+
     def test_duplicate_case_variant_rejected(self):
         self.login()
         Package.objects.create(tracking_code="AM101610575BR", carrier="correios")

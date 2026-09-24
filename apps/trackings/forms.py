@@ -50,8 +50,8 @@ class PackageForm(forms.ModelForm):
         doc = self.cleaned_data.get("document") or ""
         digits = "".join(ch for ch in doc if ch.isdigit())
         carrier = resolve_carrier(self.cleaned_data.get("tracking_code", ""), self.cleaned_data.get("carrier") or "")
-        if carrier == "jtexpress" and len(digits) != 11:
-            raise forms.ValidationError("CPF do destinatário deve ter 11 dígitos (J&T Express).")
+        if carrier == "jtexpress" and len(digits) not in (11, 14):
+            raise forms.ValidationError("CPF ou CNPJ do destinatário deve ter 11 ou 14 dígitos (J&T Express).")
         return digits
 
     def save(self, commit=True):
