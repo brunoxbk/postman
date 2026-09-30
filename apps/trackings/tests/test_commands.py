@@ -36,3 +36,8 @@ class SyncTrackingsCommandTestCase(TestCase):
         with mock.patch(SYNC_ALL, return_value=WITH_PAUSED):
             with self.assertRaises(CommandError):
                 call_command("sync_trackings")
+
+    def test_run_force_passes_force_to_sync_all(self):
+        with mock.patch(SYNC_ALL, return_value=OK) as mock_sync_all:
+            call_command("sync_trackings", force=True, quiet=True)
+            mock_sync_all.assert_called_once_with(force=True)

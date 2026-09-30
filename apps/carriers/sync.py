@@ -1,5 +1,6 @@
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import timedelta
 from enum import Enum
 
 from django.conf import settings
@@ -132,17 +133,18 @@ def _sync_one(package: Package, client: PacoteVicioClient) -> SyncResult:
         return SyncResult.ERROR
 
 
-def pending_packages() -> list[Package]:
-    start_of_day = timezone.localdate()
+def pending_packages(window_hours: int | None = None):
+    hours = window_hours if window_hours is not None else getattr(settings, "SYNC_WINDOW_HOURS", 2)
+    cutoff = timezone.now() - timedelta(hours=hours)
     return Package.objects.filter(is_active=True).filter(
-        Q(last_synced_at__isnull=True) | Q(last_synced_at__lt=start_of_day)
+        Q(last_synced_at__isnull=True) | Q(last_synced_at__lt=cutoff)
     )
 
 
-def sync_all(client: PacoteVicioClient | None = None) -> dict:
+def sync_all(client: PacoteVicioClient | None = None, force: bool = False) -> dict:
     client = client or PacoteVicioClient()
     results = {"ok": 0, "erro": 0, "pausado": 0, "sem_documento": 0}
-    packages = list(pending_packages())
+    packages = list(Package.objects.filter(is_active=True) if force else pending_packages())
     workers = getattr(settings, "SYNC_WORKERS", 4)
     if workers <= 1 or len(packages) <= 1 or connection.vendor == "sqlite":
         for package in packages:

@@ -8,7 +8,7 @@ Aplicação Django (painel web + API) que consome a [API PacoteVício](https://a
 - **Detecção automática** da transportadora pelo formato do código de rastreio (com opção de override manual).
 - **Painel web (pt-BR)**: dashboard com cards (em trânsito / entregues / atrasadas), busca, filtros, timeline de eventos por encomenda, cadastrar/editar/excluir, botão "Atualizar agora".
 - **API protegida** por `Api-Key` para o Hermes agent (listar, consultar, cadastrar encomendas); health e schema (`/api/v1/schema/`) são públicos.
-- **Regras de negócio**: encomenda em estado final é encerrada (para de consultar), detecção de atraso, dedupe de eventos, e **cota mensal** da PacoteVício controlada para não estourar o plano; "Atualizar todos" só re-consulta o que ainda não foi sincronizado no dia.
+- **Regras de negócio**: encomenda em estado final é encerrada (para de consultar), detecção de atraso, dedupe de eventos, e **cota mensal** da PacoteVício controlada para não estourar o plano; "Atualizar todos" re-consulta encomendas pendentes fora da janela recente (default 2h).
 - **E-mail opcional** em entregas/atrasos (configurar `PACOTE_NOTIFY_EMAIL`).
 - **Cron 3×/dia** (08:40, 13:00, 19:00 America/Sao_Paulo) via management command `sync_trackings`.
 

@@ -104,10 +104,12 @@ aware no fuso `America/Sao_Paulo`.
 ### 4. Sincronização (`apps/carriers/sync.py`)
 
 O management command `sync_trackings` (cron) e o botão **"Atualizar todos"** do painel web
-executam `sync_all()`, que itera apenas as encomendas `is_active=True` ainda **não
-sincronizadas hoje** — `pending_packages()` filtra `last_synced_at` nulo ou anterior ao
-início do dia (janela "no dia", para não consumir cota re-consultando o que já foi
-sincronizado). Para cada uma, `sync_package()`:
+executam `sync_all()`, que itera as encomendas `is_active=True` pendentes de sincronização —
+`pending_packages()` filtra encomendas com `last_synced_at` nulo ou anterior ao intervalo
+recente (`SYNC_WINDOW_HOURS`, default 2h). Com isso, as três execuções diárias do cron (08:40,
+13:00 e 19:00) sincronizam todas as encomendas ativas, ao mesmo tempo em que cliques repetidos
+no botão web não queimam cota desnecessariamente. Para forçar a sincronização de todas as ativas
+no cron, pode-se usar `--force`. Para cada encomenda, `sync_package()`:
 
 1. Confere a **cota** (`SyncLog.is_paused()`) e devolve `SyncResult.PAUSED` se estourou.
 2. Monta params via adapter (`document` do CPF se necessário — sem ele, J&T devolve

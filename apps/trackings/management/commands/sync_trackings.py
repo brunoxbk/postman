@@ -16,10 +16,16 @@ class Command(BaseCommand):
             action="store_true",
             help="Imprime apenas os totais, sem o cabeçalho.",
         )
+        parser.add_argument(
+            "--force",
+            action="store_true",
+            help="Força sincronização de todas as encomendas ativas, ignorando janela recente.",
+        )
 
     def handle(self, *args, **options):
         quiet = options["quiet"]
-        results = sync_all()
+        force = options["force"]
+        results = sync_all(force=force)
         if results["pausado"]:
             logger.warning("Cota mensal atingida — %s encomendas pausadas.", results["pausado"])
         if not quiet:

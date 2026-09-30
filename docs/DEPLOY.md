@@ -89,9 +89,15 @@ sudo crontab -e
 > no log para diagnosticar falhas. O `sync_trackings` sai com **código ≠ 0** quando alguma
 > encomenda falhou ou a cota foi atingida.
 
-O comando roda **apenas encomendas desatualizadas** (`pending_packages()`): com a janela
-"no dia", a primeira execução do dia (08:40) sincroniza tudo; as de 13:00 e 19:00 só
-pegam o que ainda não foi sincronizado hoje (poupa cota).
+O comando roda **encomendas pendentes/desatualizadas** (`pending_packages()`, controladas
+pela janela `SYNC_WINDOW_HOURS`, default 2h). Como os horários do cron têm intervalos de ~4h a ~13h,
+todas as três execuções diárias (08:40, 13:00 e 19:00) sincronizam normalmente todas as encomendas
+ativas em trânsito. Para forçar a sincronização de todas as encomendas ativas ignorando o intervalo
+recente, passe `--force`:
+
+```bash
+dokku run postman python manage.py sync_trackings --force
+```
 
 Valide manualmente antes de confiar no cron:
 

@@ -20,6 +20,7 @@ env = environ.Env(
     DJANGO_DEFAULT_FROM_EMAIL=(str, "no-reply@rastreador.local"),
     PUBLIC_BASE_URL=(str, ""),
     SYNC_WORKERS=(int, 4),
+    SYNC_WINDOW_HOURS=(int, 2),
 )
 environ.Env.read_env(BASE_DIR / ".env")
 
@@ -105,6 +106,7 @@ PACOTE_NOTIFY_EMAIL = env("PACOTE_NOTIFY_EMAIL")
 DEFAULT_FROM_EMAIL = env("DJANGO_DEFAULT_FROM_EMAIL")
 PUBLIC_BASE_URL = env("PUBLIC_BASE_URL")
 SYNC_WORKERS = env("SYNC_WORKERS")
+SYNC_WINDOW_HOURS = env("SYNC_WINDOW_HOURS")
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [

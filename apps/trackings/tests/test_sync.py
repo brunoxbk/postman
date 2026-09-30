@@ -238,7 +238,7 @@ class SyncAllTestCase(TestCase):
         self.assertIsNotNone(recent.last_synced_at)
 
     def test_sync_all_syncs_packages_not_synced_today(self):
-        yesterday = timezone.localdate() - timedelta(days=1)
+        yesterday = timezone.now() - timedelta(days=1)
         Package.objects.create(
             tracking_code="X1", carrier="correios", last_synced_at=yesterday
         )
@@ -246,6 +246,29 @@ class SyncAllTestCase(TestCase):
                "status": "pending", "status_updated_at": None, "events": []}
         client = FakeClient(raw)
         results = sync_all(client)
+        self.assertEqual(results["ok"], 1)
+        self.assertEqual(client.calls, 1)
+
+    def test_sync_all_syncs_packages_outside_window(self):
+        three_hours_ago = timezone.now() - timedelta(hours=3)
+        Package.objects.create(
+            tracking_code="X1", carrier="correios", last_synced_at=three_hours_ago
+        )
+        raw = {"tracking_code": "X1", "courier": "correios",
+               "status": "pending", "status_updated_at": None, "events": []}
+        client = FakeClient(raw)
+        results = sync_all(client)
+        self.assertEqual(results["ok"], 1)
+        self.assertEqual(client.calls, 1)
+
+    def test_sync_all_force_syncs_recently_synced_packages(self):
+        Package.objects.create(
+            tracking_code="X1", carrier="correios", last_synced_at=timezone.now()
+        )
+        raw = {"tracking_code": "X1", "courier": "correios",
+               "status": "pending", "status_updated_at": None, "events": []}
+        client = FakeClient(raw)
+        results = sync_all(client, force=True)
         self.assertEqual(results["ok"], 1)
         self.assertEqual(client.calls, 1)
 
